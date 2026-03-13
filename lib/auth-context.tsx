@@ -11,7 +11,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 const ADMIN_USERNAME = 'thotho2k2'
-const ADMIN_PASSWORD = '220903'
+const ADMIN_PASSWORD = '140395'
 const AUTH_KEY = 'kpop_go_admin_auth'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
