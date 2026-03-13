@@ -37,9 +37,9 @@ import {
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { campaignStatusLabels, storeOptions } from '@/lib/types'
-import type { Campaign, CampaignStatus } from '@/lib/types'
+import type { CampaignStatus } from '@/lib/types'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase' // Đảm bảo file này đã có URL/Key của bạn
+import { supabase } from '@/lib/supabase'
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
@@ -77,7 +77,6 @@ export default function CampaignsPage() {
   const [editingCampaign, setEditingCampaign] = useState<any | null>(null)
   const [loading, setLoading] = useState(false)
   
-  // Form state
   const [name, setName] = useState('')
   const [store, setStore] = useState('')
   const [imageUrl, setImageUrl] = useState('')
@@ -86,12 +85,10 @@ export default function CampaignsPage() {
   const [description, setDescription] = useState('')
   const [options, setOptions] = useState<OptionForm[]>([{ ...emptyOption }])
   
-  // Scraper state
   const [scraperUrl, setScraperUrl] = useState('')
   const [isScraperLoading, setIsScraperLoading] = useState(false)
   const [scraperError, setScraperError] = useState('')
 
-  // Lấy dữ liệu từ Supabase khi mở trang
   const fetchCampaigns = async () => {
     const { data, error } = await supabase
       .from('campaigns')
@@ -106,7 +103,6 @@ export default function CampaignsPage() {
     fetchCampaigns()
   }, [])
 
-  // Phương án 1: Tự động quét dữ liệu
   const handleAutoFill = async () => {
     if (!scraperUrl.trim()) {
       setScraperError('Vui lòng nhập URL')
@@ -144,8 +140,8 @@ export default function CampaignsPage() {
   const openModal = (campaign?: any) => {
     if (campaign) {
       setEditingCampaign(campaign)
-      setName(campaign.name)
-      setStore(campaign.store)
+      setName(campaign.title) // Fix: Database dùng 'title'
+      setStore(campaign.store_name) // Fix: Database dùng 'store_name'
       setImageUrl(campaign.image_url || '')
       setStatus(campaign.status)
       setCloseDate(campaign.close_date || '')
@@ -153,7 +149,7 @@ export default function CampaignsPage() {
       setOptions(campaign.campaign_options.map((o: any) => ({
         id: o.id,
         version: o.version,
-        price: o.price.toString(),
+        price: o.price_vnd ? o.price_vnd.toString() : '0', // Fix: Dùng price_vnd
         benefit: o.benefit || '',
         label: o.label || ''
       })))
@@ -173,67 +169,66 @@ export default function CampaignsPage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setLoading(true)
+    e.preventDefault()
+    setLoading(true)
 
-  try {
-    const campaignData = {
-      title: name,
-      store_name: store,
-      image_url: imageUrl, 
-      status: status,
-      description: description,
-      close_date: closeDate ? closeDate : null 
+    try {
+      const campaignData = {
+        title: name,
+        store_name: store,
+        image_url: imageUrl, 
+        status: status,
+        description: description,
+        close_date: closeDate ? closeDate : null 
+      }
+
+      let campaignId = editingCampaign?.id
+
+      if (editingCampaign) {
+        const { error: updateError } = await supabase
+          .from('campaigns')
+          .update(campaignData)
+          .eq('id', campaignId)
+        if (updateError) throw updateError
+        
+        await supabase.from('campaign_options').delete().eq('campaign_id', campaignId)
+      } else {
+        const { data, error: insertError } = await supabase
+          .from('campaigns')
+          .insert([campaignData])
+          .select()
+          .single()
+        if (insertError) throw insertError
+        campaignId = data.id
+      }
+
+      const optionsToInsert = options
+        .filter(o => o.version && o.price)
+        .map(o => ({
+          campaign_id: campaignId,
+          version: o.version,
+          price_vnd: parseInt(o.price) || 0,
+          benefit: o.benefit || null,
+          label: o.label || null
+        }))
+
+      const { error: optionsError } = await supabase
+        .from('campaign_options')
+        .insert(optionsToInsert)
+      if (optionsError) throw optionsError
+
+      alert("Lưu chiến dịch thành công!")
+      setIsModalOpen(false)
+      fetchCampaigns()
+    } catch (error: any) {
+      alert("Lỗi: " + error.message)
+    } finally {
+      setLoading(false)
     }
-
-    let campaignId = editingCampaign?.id
-
-    if (editingCampaign) {
-      const { error: updateError } = await supabase
-        .from('campaigns')
-        .update(campaignData)
-        .eq('id', campaignId)
-      if (updateError) throw updateError
-      
-      await supabase.from('campaign_options').delete().eq('campaign_id', campaignId)
-    } else {
-      const { data, error: insertError } = await supabase
-        .from('campaigns')
-        .insert([campaignData])
-        .select()
-        .single()
-      if (insertError) throw insertError
-      campaignId = data.id
-    }
-
-    // CHÚ Ý: Sửa tên cột cho khớp với ảnh bảng campaign_options của Ninh
-    const optionsToInsert = options
-      .filter(o => o.version && o.price)
-      .map(o => ({
-        campaign_id: campaignId,
-        version: o.version,
-        price_vnd: parseInt(o.price_vnd) || 0, // Đổi từ price sang price_vnd
-        benefit: o.benefit || null,
-        label: o.label || null
-      }))
-
-    const { error: optionsError } = await supabase
-      .from('campaign_options')
-      .insert(optionsToInsert)
-    if (optionsError) throw optionsError
-
-    alert("Tuyệt vời Ninh ơi! Web đã nhận sản phẩm thật rồi nhé!")
-    setIsModalOpen(false)
-    fetchCampaigns()
-  } catch (error: any) {
-    alert("Lỗi vẫn còn nè: " + error.message)
-  } finally {
-    setLoading(false)
   }
-}
 
   const handleDelete = async (campaign: any) => {
-    if (confirm(`Xóa chiến dịch "${campaign.name}"? Dữ liệu đơn hàng liên quan cũng sẽ bị ảnh hưởng.`)) {
+    if (confirm(`Xóa chiến dịch "${campaign.title}"?`)) {
       await supabase.from('campaigns').delete().eq('id', campaign.id)
       fetchCampaigns()
     }
@@ -251,59 +246,82 @@ export default function CampaignsPage() {
         </Button>
       </div>
 
-      <Card className="mb-6"><CardContent className="pt-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Tìm kiếm tên album..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 rounded-xl" />
-        </div>
-      </CardContent></Card>
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Tìm kiếm tên album..." 
+              value={search} 
+              onChange={(e) => setSearch(e.target.value)} 
+              className="pl-10 rounded-xl" 
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-      <Card><CardContent className="p-0"><div className="overflow-x-auto">
-        <Table>
-          <TableHeader><TableRow>
-            <TableHead>Chiến dịch</TableHead>
-            <TableHead>Cửa hàng</TableHead>
-            <TableHead>Trạng thái</TableHead>
-            <TableHead>Ngày đóng</TableHead>
-            <TableHead className="w-[100px]">Thao tác</TableHead>
-          </TableRow></TableHeader>
-          <TableBody>
-            {dbCampaigns.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).map((campaign) => (
-              <TableRow key={campaign.id}>
-                <TableCell>
-                  <div className="font-bold text-gray-800">{campaign.name}</div>
-                  <div className="text-xs text-muted-foreground">{campaign.campaign_options?.length || 0} phiên bản</div>
-                </TableCell>
-                <TableCell><Badge variant="outline">{campaign.store}</Badge></TableCell>
-                <TableCell><Badge className={`${getStatusColor(campaign.status)} border`}>{campaignStatusLabels[campaign.status]}</Badge></TableCell>
-                <TableCell>{formatDate(campaign.close_date)}</TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild><Link href={`/campaign?id=${campaign.id}`}><Eye className="h-4 w-4 mr-2" /> Xem</Link></DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openModal(campaign)}><Edit2 className="h-4 w-4 mr-2" /> Sửa</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(campaign)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Xóa</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div></CardContent></Card>
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Chiến dịch</TableHead>
+                  <TableHead>Cửa hàng</TableHead>
+                  <TableHead>Trạng thái</TableHead>
+                  <TableHead>Ngày đóng</TableHead>
+                  <TableHead className="w-[100px]">Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {dbCampaigns.filter(c => c.title?.toLowerCase().includes(search.toLowerCase())).map((campaign) => (
+                  <TableRow key={campaign.id}>
+                    <TableCell>
+                      <div className="font-bold text-gray-800">{campaign.title}</div>
+                      <div className="text-xs text-muted-foreground">{campaign.campaign_options?.length || 0} phiên bản</div>
+                    </TableCell>
+                    <TableCell><Badge variant="outline">{campaign.store_name}</Badge></TableCell>
+                    <TableCell>
+                      <Badge className={`${getStatusColor(campaign.status)} border`}>
+                        {campaignStatusLabels[campaign.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatDate(campaign.close_date)}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/Demo/campaign?id=${campaign.id}`}><Eye className="h-4 w-4 mr-2" /> Xem</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openModal(campaign)}>
+                            <Edit2 className="h-4 w-4 mr-2" /> Sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDelete(campaign)} className="text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" /> Xóa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingCampaign ? 'Cập nhật' : 'Tạo mới'} chiến dịch</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* Phương án 1: Scraper */}
             {!editingCampaign && (
               <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-3">
-                <Label className="font-bold text-[#8B7CFF] flex items-center gap-2"><Link2 className="h-4 w-4" /> Phương án 1: Tự điền từ URL Aladin/Weverse</Label>
+                <Label className="font-bold text-[#8B7CFF] flex items-center gap-2"><Link2 className="h-4 w-4" /> Phương án 1: Tự điền từ URL</Label>
                 <div className="flex gap-2">
-                  <Input value={scraperUrl} onChange={(e) => setScraperUrl(e.target.value)} placeholder="Dán link sản phẩm vào đây..." className="rounded-xl flex-1" />
+                  <Input value={scraperUrl} onChange={(e) => setScraperUrl(e.target.value)} placeholder="Dán link sản phẩm..." className="rounded-xl flex-1" />
                   <Button type="button" variant="secondary" onClick={handleAutoFill} disabled={isScraperLoading}>
                     {isScraperLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Quét'}
                   </Button>
@@ -312,11 +330,10 @@ export default function CampaignsPage() {
               </div>
             )}
 
-            {/* Phương án 2: Điền tay */}
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 space-y-1">
                 <Label>Tên album *</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="VD: NewJeans 2nd EP 'Get Up'" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
               <div className="space-y-1">
                 <Label>Cửa hàng *</Label>
@@ -331,20 +348,22 @@ export default function CampaignsPage() {
               </div>
               <div className="col-span-2 space-y-1">
                 <Label>URL Ảnh bìa</Label>
-                <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="Dán link ảnh tại đây..." />
+                <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
                 {imageUrl && <img src={imageUrl} className="h-20 w-20 mt-2 rounded border object-cover" />}
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="flex justify-between items-center"><Label className="font-bold">Các phiên bản & Giá</Label>
-              <Button type="button" variant="outline" size="sm" onClick={() => setOptions([...options, { ...emptyOption }])}>+ Thêm bản</Button></div>
+              <div className="flex justify-between items-center">
+                <Label className="font-bold">Các phiên bản & Giá</Label>
+                <Button type="button" variant="outline" size="sm" onClick={() => setOptions([...options, { ...emptyOption }])}>+ Thêm bản</Button>
+              </div>
               {options.map((option, index) => (
                 <div key={index} className="grid grid-cols-12 gap-2 p-3 bg-gray-50 rounded-xl border">
-                  <Input placeholder="Bản A/B/C" value={option.version} onChange={(e) => {
+                  <Input placeholder="Bản A/B..." value={option.version} onChange={(e) => {
                     const n = [...options]; n[index].version = e.target.value; setOptions(n);
                   }} className="col-span-5" />
-                  <Input type="number" placeholder="Giá VND" value={option.price} onChange={(e) => {
+                  <Input type="number" placeholder="Giá" value={option.price} onChange={(e) => {
                     const n = [...options]; n[index].price = e.target.value; setOptions(n);
                   }} className="col-span-5" />
                   <Button type="button" variant="ghost" className="col-span-2 text-red-500" onClick={() => setOptions(options.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
