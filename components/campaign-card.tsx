@@ -32,7 +32,7 @@ export function CampaignCard({ campaign }: { campaign: any }) {
 
   const handlePayment = () => {
     if (selectedOptions.length === 0) {
-      alert("Nhắc khách chọn ít nhất 1 phiên bản nhé!")
+      alert("Chọn ít nhất 1 phiên bản nhé!")
       return
     }
     // 2. Fix lỗi 404: Bỏ bớt /Demo vì Next.js tự điều hướng
