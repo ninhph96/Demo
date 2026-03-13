@@ -15,7 +15,7 @@ export default function HomePage() {
     const fetchData = async () => {
       setLoading(true)
       
-      // 1. Lấy cấu hình giao diện (Header, Banner, Màu sắc)
+      // 1. Lấy cấu hình giao diện (Header, Banner, Màu sắc, Logo)
       const { data: settingsData } = await supabase
         .from('site_settings')
         .select('*')
@@ -36,11 +36,11 @@ export default function HomePage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#F8F9FD]">
-      {/* Truyền site_name động vào Header nếu Ninh có code Header nhận props */}
-      <Header /> 
+    <div className="min-h-screen bg-[#F8F9FD] flex flex-col">
+      {/* 1. Header động lấy Site Name và Logo từ Admin */}
+      <Header settings={settings} /> 
 
-      <main className="container mx-auto px-4 py-8 space-y-8">
+      <main className="container mx-auto px-4 py-8 flex-1 space-y-8">
         
         {/* Banner Hero - DỮ LIỆU ĐỘNG TỪ ADMIN */}
         <section 
@@ -70,12 +70,12 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Decor Circles */}
+          {/* Hiệu ứng hình tròn trang trí */}
           <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute right-10 top-10 w-20 h-20 bg-white/5 rounded-full blur-xl" />
         </section>
 
-        {/* Danh sách Grid */}
+        {/* Danh sách Grid sản phẩm */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black text-gray-800 italic uppercase">Chiến dịch đang mở</h2>
@@ -85,6 +85,7 @@ export default function HomePage() {
           </div>
 
           {loading ? (
+            /* Hiệu ứng chờ khi đang tải dữ liệu */
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 animate-pulse">
               {[1, 2, 3, 4].map(i => (
                 <div key={i} className="aspect-[3/4] bg-gray-200 rounded-[32px]" />
@@ -97,6 +98,7 @@ export default function HomePage() {
               ))}
             </div>
           ) : (
+            /* Khi không có sản phẩm nào */
             <div className="text-center py-20 bg-white rounded-[40px] border-2 border-dashed border-gray-100">
               <Sparkles className="h-12 w-12 text-gray-200 mx-auto mb-4" />
               <p className="text-gray-400 font-bold uppercase italic">Chưa có chiến dịch nào đang mở</p>
@@ -105,9 +107,16 @@ export default function HomePage() {
         </div>
       </main>
 
-      {/* Footer động */}
-      <footer className="py-10 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">
-        {settings?.footer_text || '© 2026 Thạch Thảo'}
+      {/* 2. Footer động lấy text từ Admin */}
+      <footer className="py-10 text-center border-t border-gray-100 mt-10">
+        <div className="container mx-auto space-y-4">
+           {settings?.logo_url && (
+             <img src={settings.logo_url} alt="logo" className="h-8 w-8 mx-auto opacity-30 grayscale" />
+           )}
+           <p className="text-gray-400 text-xs font-medium uppercase tracking-widest">
+            {settings?.footer_text || '© 2026 Thạch Thảo'}
+           </p>
+        </div>
       </footer>
     </div>
   )
