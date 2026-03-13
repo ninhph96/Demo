@@ -99,9 +99,35 @@ export default function CampaignsPage() {
     if (error) console.error("Lỗi lấy dữ liệu:", error)
   }
 
-  useEffect(() => {
-    fetchCampaigns()
-  }, [])
+  const searchParams = useSearchParams()
+const editId = searchParams.get('id')
+
+useEffect(() => {
+  if (editId) {
+    const fetchCampaignData = async () => {
+      // Lấy thông tin chiến dịch và các phiên bản (options) của nó
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*, campaign_options(*)')
+        .eq('id', editId)
+        .single()
+
+      if (data) {
+        // Đổ dữ liệu vào Form
+        setFormData({
+          title: data.title,
+          description: data.description,
+          image_url: data.image_url,
+          status: data.status,
+          store_name: data.store_name
+        })
+        // Nếu Ninh có lưu options thì đổ vào đây luôn
+        setOptions(data.campaign_options || [])
+      }
+    }
+    fetchCampaignData()
+  }
+}, [editId])
 
   const handleAutoFill = async () => {
     if (!scraperUrl.trim()) {
