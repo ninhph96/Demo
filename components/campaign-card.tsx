@@ -32,7 +32,7 @@ export function CampaignCard({ campaign }: { campaign: any }) {
 
   const handlePayment = () => {
     if (options.length > 0 && selectedOptions.length === 0) {
-      alert("Ninh nhắc khách chọn ít nhất 1 phiên bản nhé!")
+      alert("Chọn ít nhất 1 phiên bản nhé!")
       return
     }
     const ids = selectedOptions.length > 0 ? selectedOptions.join(',') : 'default'
