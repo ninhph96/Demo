@@ -7,14 +7,15 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Store, Clock, ShoppingCart, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Store, Clock, ShoppingCart, Info } from 'lucide-react'
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
 }
 
 export function CampaignCard({ campaign }: { campaign: any }) {
-  const [showOptions, setShowOptions] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const router = useRouter()
 
@@ -30,109 +31,102 @@ export function CampaignCard({ campaign }: { campaign: any }) {
   }
 
   const handlePayment = () => {
-    // FIX Ở ĐÂY: Nếu có options thì bắt chọn, nếu không có (Bản cơ bản) thì cho đi luôn
     if (options.length > 0 && selectedOptions.length === 0) {
-      alert("Phải chọn ít nhất 1 phiên bản nhé!")
+      alert("Ninh nhắc khách chọn ít nhất 1 phiên bản nhé!")
       return
     }
-
     const ids = selectedOptions.length > 0 ? selectedOptions.join(',') : 'default'
+    // Sửa lỗi 404 bằng router.push chuẩn của Next.js
     router.push(`/order/checkout?id=${campaign.id}&options=${ids}`)
   }
 
   return (
-    <Card className="overflow-hidden rounded-3xl border-none shadow-md bg-white hover:shadow-xl transition-all duration-300">
-      <div className="relative aspect-square">
-        <Image 
-          src={campaign.image_url || 'https://placehold.co/400x400?text=No+Image'} 
-          alt={campaign.title} 
-          fill 
-          className="object-cover"
-        />
-        <Badge className={`absolute top-3 left-3 border-none rounded-lg px-3 py-1 font-medium ${
-          campaign.status === 'OPEN' ? 'bg-[#E6FFFA] text-[#2D3748]' : 'bg-gray-100 text-gray-500'
-        }`}>
-          {campaign.status === 'OPEN' ? 'Đang mở' : 'Tạm đóng'}
-        </Badge>
-      </div>
-
-      <CardContent className="p-5 space-y-3">
-        <h3 className="font-bold text-lg text-[#2D3748] leading-tight line-clamp-2 min-h-[3rem]">
-          {campaign.title}
-        </h3>
-
-        <div className="flex flex-col gap-1.5 text-sm text-gray-500">
-          <div className="flex items-center gap-2">
-            <Store className="h-4 w-4 text-[#8B7CFF]" />
-            <span>{campaign.store_name}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-[#8B7CFF]" />
-            <span>
-              {campaign.close_date 
-                ? `Đóng: ${new Date(campaign.close_date).toLocaleDateString('vi-VN')}` 
-                : 'Liên hệ chốt đơn'}
-            </span>
-          </div>
+    <>
+      {/* 1. Card hiển thị ở trang chủ (Gọn gàng) */}
+      <Card 
+        className="overflow-hidden rounded-[32px] border-none shadow-sm bg-white hover:shadow-xl transition-all duration-300 cursor-pointer group"
+        onClick={() => setIsOpen(true)}
+      >
+        <div className="relative aspect-square">
+          <Image 
+            src={campaign.image_url || 'https://placehold.co/400x400?text=No+Image'} 
+            alt={campaign.title} 
+            fill 
+            className="object-cover group-hover:scale-110 transition-transform duration-500"
+          />
+          <Badge className="absolute top-3 left-3 bg-white/80 backdrop-blur-md text-gray-800 border-none rounded-xl">
+            {campaign.status === 'OPEN' ? 'Đang mở' : 'Tạm đóng'}
+          </Badge>
         </div>
 
-        <div className="flex items-baseline gap-1 text-[#8B7CFF]">
-          <span className="text-sm">Từ</span>
-          <span className="text-xl font-black">{formatPrice(minPrice)}</span>
-        </div>
+        <CardContent className="p-4 space-y-2">
+          <h3 className="font-bold text-gray-800 line-clamp-1">{campaign.title}</h3>
+          <div className="flex justify-between items-center">
+            <span className="text-[#8B7CFF] font-black">{formatPrice(minPrice)}</span>
+            <span className="text-[10px] text-gray-400 uppercase font-bold">{campaign.store_name}</span>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Button 
-          variant="outline" 
-          className={`w-full rounded-2xl border-[#8B7CFF] text-[#8B7CFF] hover:bg-[#8B7CFF] hover:text-white transition-all font-bold ${
-            showOptions ? 'bg-[#8B7CFF] text-white' : ''
-          }`}
-          onClick={() => setShowOptions(!showOptions)}
-        >
-          {showOptions ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
-          {showOptions ? 'Đóng lại' : 'Chọn phiên bản'}
-        </Button>
+      {/* 2. Modal hiện thông tin chi tiết (Bảng thông tin khi ấn vào) */}
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-md rounded-[40px] border-none p-0 overflow-hidden bg-[#F8F9FD]">
+          <div className="relative h-64">
+            <Image src={campaign.image_url} alt={campaign.title} fill className="object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#F8F9FD] via-transparent" />
+          </div>
+          
+          <div className="p-6 -mt-12 relative space-y-4">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black text-gray-800 leading-tight">
+                {campaign.title}
+              </DialogTitle>
+            </DialogHeader>
 
-        {showOptions && (
-          <div className="mt-4 pt-4 border-t border-dashed space-y-3">
-            {options.length > 0 ? (
-              options.map((option: any) => (
-                <div 
-                  key={option.id} 
-                  className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                    selectedOptions.includes(option.id) ? 'border-[#8B7CFF] bg-[#F7F6FF]' : 'border-gray-50 bg-gray-50/50'
-                  }`}
-                  onClick={() => handleToggleOption(option.id)}
-                >
-                  <div className="flex items-center gap-3">
-                    <Checkbox checked={selectedOptions.includes(option.id)} />
-                    <div className="flex flex-col">
-                      <span className="font-bold text-sm text-gray-700">{option.version}</span>
-                      <div className="flex gap-2 items-center">
-                        <span className="text-xs text-[#8B7CFF] font-medium">{formatPrice(option.price_vnd)}</span>
+            <div className="flex gap-4 text-xs font-bold text-gray-400">
+              <span className="flex items-center gap-1"><Store className="h-3 w-3" /> {campaign.store_name}</span>
+              <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {campaign.close_date ? new Date(campaign.close_date).toLocaleDateString('vi-VN') : 'Liên hệ'}</span>
+            </div>
+
+            <div className="bg-white rounded-[32px] p-4 shadow-sm space-y-3">
+              <p className="text-xs font-black text-gray-400 uppercase flex items-center gap-2">
+                <Info className="h-3 w-3" /> Chọn phiên bản
+              </p>
+              
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {options.length > 0 ? (
+                  options.map((option: any) => (
+                    <div 
+                      key={option.id} 
+                      onClick={() => handleToggleOption(option.id)}
+                      className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                        selectedOptions.includes(option.id) ? 'border-[#8B7CFF] bg-[#F7F6FF]' : 'border-gray-50 bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Checkbox checked={selectedOptions.includes(option.id)} />
+                        <div>
+                          <p className="font-bold text-sm text-gray-700">{option.version}</p>
+                          <p className="text-xs text-[#8B7CFF] font-black">{formatPrice(option.price_vnd)}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-2 text-gray-400 text-sm flex items-center justify-center gap-2">
-                <AlertCircle className="h-4 w-4" /> Bản cơ bản
+                  ))
+                ) : (
+                  <p className="text-center text-gray-400 text-sm py-4 italic">Bản cơ bản</p>
+                )}
               </div>
-            )}
+            </div>
 
             <Button 
-              className="w-full rounded-2xl bg-[#8B7CFF] hover:bg-[#7A6BEB] text-white h-12 font-bold shadow-lg mt-2"
-              onClick={(e) => {
-                e.stopPropagation()
-                handlePayment()
-              }}
+              onClick={handlePayment}
+              className="w-full h-14 rounded-[24px] bg-[#8B7CFF] hover:bg-[#7A6BEB] text-lg font-black shadow-lg shadow-purple-100"
             >
-              <ShoppingCart className="mr-2 h-5 w-5" />
-              Thanh toán ngay
+              <ShoppingCart className="mr-2 h-5 w-5" /> THANH TOÁN NGAY
             </Button>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
