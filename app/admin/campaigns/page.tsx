@@ -173,65 +173,64 @@ export default function CampaignsPage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+  e.preventDefault()
+  setLoading(true)
 
-    try {
-      // KHỚP VỚI ẢNH SUPABASE CỦA NINH
-      const campaignData = {
-        title: name,        // Đổi từ 'name' sang 'title'
-        store_name: store,  // Đổi từ 'store' sang 'store_name'
-        image_url: imageUrl, 
-        status: status,
-        description: description,
-        close_date: closeDate ? closeDate : null // Không bắt buộc, bỏ trống sẽ gửi null
-      }
-
-      let campaignId = editingCampaign?.id
-
-      if (editingCampaign) {
-        const { error: updateError } = await supabase
-          .from('campaigns')
-          .update(campaignData)
-          .eq('id', campaignId)
-        if (updateError) throw updateError
-        
-        await supabase.from('campaign_options').delete().eq('campaign_id', campaignId)
-      } else {
-        const { data, error: insertError } = await supabase
-          .from('campaigns')
-          .insert([campaignData])
-          .select()
-          .single()
-        if (insertError) throw insertError
-        campaignId = data.id
-      }
-
-      // Chèn các Options (Ninh kiểm tra xem bảng campaign_options cột có đúng là campaign_id không nhé)
-      const optionsToInsert = options
-        .filter(o => o.version && o.price)
-        .map(o => ({
-          campaign_id: campaignId,
-          version: o.version,
-          price: parseInt(o.price) || 0,
-          benefit: o.benefit || null,
-          label: o.label || null
-        }))
-
-      const { error: optionsError } = await supabase
-        .from('campaign_options')
-        .insert(optionsToInsert)
-      if (optionsError) throw optionsError
-
-      alert("Tuyệt vời Ninh ơi! Đã đăng thành công sản phẩm đầu tiên rồi nhé!")
-      setIsModalOpen(false)
-      fetchCampaigns()
-    } catch (error: any) {
-      alert("Lỗi vẫn còn nè: " + error.message)
-    } finally {
-      setLoading(false)
+  try {
+    const campaignData = {
+      title: name,
+      store_name: store,
+      image_url: imageUrl, 
+      status: status,
+      description: description,
+      close_date: closeDate ? closeDate : null 
     }
+
+    let campaignId = editingCampaign?.id
+
+    if (editingCampaign) {
+      const { error: updateError } = await supabase
+        .from('campaigns')
+        .update(campaignData)
+        .eq('id', campaignId)
+      if (updateError) throw updateError
+      
+      await supabase.from('campaign_options').delete().eq('campaign_id', campaignId)
+    } else {
+      const { data, error: insertError } = await supabase
+        .from('campaigns')
+        .insert([campaignData])
+        .select()
+        .single()
+      if (insertError) throw insertError
+      campaignId = data.id
+    }
+
+    // CHÚ Ý: Sửa tên cột cho khớp với ảnh bảng campaign_options của Ninh
+    const optionsToInsert = options
+      .filter(o => o.version && o.price)
+      .map(o => ({
+        campaign_id: campaignId,
+        version: o.version,
+        price_vnd: parseInt(o.price) || 0, // Đổi từ price sang price_vnd
+        benefit: o.benefit || null,
+        label: o.label || null
+      }))
+
+    const { error: optionsError } = await supabase
+      .from('campaign_options')
+      .insert(optionsToInsert)
+    if (optionsError) throw optionsError
+
+    alert("Tuyệt vời Ninh ơi! Web đã nhận sản phẩm thật rồi nhé!")
+    setIsModalOpen(false)
+    fetchCampaigns()
+  } catch (error: any) {
+    alert("Lỗi vẫn còn nè: " + error.message)
+  } finally {
+    setLoading(false)
   }
+}
 
   const handleDelete = async (campaign: any) => {
     if (confirm(`Xóa chiến dịch "${campaign.name}"? Dữ liệu đơn hàng liên quan cũng sẽ bị ảnh hưởng.`)) {
