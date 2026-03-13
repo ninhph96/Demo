@@ -18,10 +18,7 @@ export function CampaignCard({ campaign }: { campaign: any }) {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const router = useRouter()
 
-  // 1. Fix lỗi biến dữ liệu theo Database của Ninh (title, store_name, price_vnd)
   const options = campaign.campaign_options || []
-  
-  // Tính giá thấp nhất (nếu không có option nào thì để 0)
   const minPrice = options.length > 0 
     ? Math.min(...options.map((o: any) => o.price_vnd || 0)) 
     : 0
@@ -33,22 +30,21 @@ export function CampaignCard({ campaign }: { campaign: any }) {
   }
 
   const handlePayment = () => {
-    if (selectedOptions.length === 0) {
-      alert("Chọn ít nhất 1 phiên bản nhé!")
+    // FIX Ở ĐÂY: Nếu có options thì bắt chọn, nếu không có (Bản cơ bản) thì cho đi luôn
+    if (options.length > 0 && selectedOptions.length === 0) {
+      alert("Phải chọn ít nhất 1 phiên bản nhé!")
       return
     }
-    // 2. Fix lỗi 404: Bỏ bớt /Demo vì Next.js tự điều hướng
-    const ids = selectedOptions.join(',')
-    // Dùng router.push và KHÔNG viết /Demo vào đây
+
+    const ids = selectedOptions.length > 0 ? selectedOptions.join(',') : 'default'
     router.push(`/order/checkout?id=${campaign.id}&options=${ids}`)
   }
 
   return (
     <Card className="overflow-hidden rounded-3xl border-none shadow-md bg-white hover:shadow-xl transition-all duration-300">
-      {/* 1. Ảnh sản phẩm */}
       <div className="relative aspect-square">
         <Image 
-          src={campaign.image_url || 'https://images.unsplash.com/photo-1619983081563-430f63602796?w=400'} 
+          src={campaign.image_url || 'https://placehold.co/400x400?text=No+Image'} 
           alt={campaign.title} 
           fill 
           className="object-cover"
@@ -60,16 +56,15 @@ export function CampaignCard({ campaign }: { campaign: any }) {
         </Badge>
       </div>
 
-      {/* 2. Thông tin cơ bản */}
       <CardContent className="p-5 space-y-3">
         <h3 className="font-bold text-lg text-[#2D3748] leading-tight line-clamp-2 min-h-[3rem]">
-          {campaign.title} {/* Đổi từ name sang title */}
+          {campaign.title}
         </h3>
 
         <div className="flex flex-col gap-1.5 text-sm text-gray-500">
           <div className="flex items-center gap-2">
             <Store className="h-4 w-4 text-[#8B7CFF]" />
-            <span>{campaign.store_name}</span> {/* Đổi từ store sang store_name */}
+            <span>{campaign.store_name}</span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-[#8B7CFF]" />
@@ -86,7 +81,6 @@ export function CampaignCard({ campaign }: { campaign: any }) {
           <span className="text-xl font-black">{formatPrice(minPrice)}</span>
         </div>
 
-        {/* 3. Nút bấm Mở rộng / Chọn Ver */}
         <Button 
           variant="outline" 
           className={`w-full rounded-2xl border-[#8B7CFF] text-[#8B7CFF] hover:bg-[#8B7CFF] hover:text-white transition-all font-bold ${
@@ -98,9 +92,8 @@ export function CampaignCard({ campaign }: { campaign: any }) {
           {showOptions ? 'Đóng lại' : 'Chọn phiên bản'}
         </Button>
 
-        {/* 4. Danh sách phiên bản (Chỉ hiện khi ấn nút) */}
         {showOptions && (
-          <div className="mt-4 pt-4 border-t border-dashed space-y-3 animate-in fade-in slide-in-from-top-2">
+          <div className="mt-4 pt-4 border-t border-dashed space-y-3">
             {options.length > 0 ? (
               options.map((option: any) => (
                 <div 
@@ -116,11 +109,6 @@ export function CampaignCard({ campaign }: { campaign: any }) {
                       <span className="font-bold text-sm text-gray-700">{option.version}</span>
                       <div className="flex gap-2 items-center">
                         <span className="text-xs text-[#8B7CFF] font-medium">{formatPrice(option.price_vnd)}</span>
-                        {option.deposit_amount > 0 && (
-                          <Badge variant="outline" className="text-[10px] h-4 px-1 border-[#8B7CFF] text-[#8B7CFF]">
-                            Cọc: {formatPrice(option.deposit_amount)}
-                          </Badge>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -132,9 +120,8 @@ export function CampaignCard({ campaign }: { campaign: any }) {
               </div>
             )}
 
-            {/* Nút Thanh toán nhanh */}
             <Button 
-              className="w-full rounded-2xl bg-[#8B7CFF] hover:bg-[#7A6BEB] text-white h-12 font-bold shadow-lg shadow-purple-200 mt-2"
+              className="w-full rounded-2xl bg-[#8B7CFF] hover:bg-[#7A6BEB] text-white h-12 font-bold shadow-lg mt-2"
               onClick={(e) => {
                 e.stopPropagation()
                 handlePayment()
