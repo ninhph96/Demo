@@ -25,10 +25,8 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-sm">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center">
-            <Sparkles className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="font-bold text-xl text-foreground">Kpop GO</span>
+          <img src="/Demo/logo.png" alt="Logo Ninh Order" className="h-10 w-10 rounded-xl object-contain" />
+          <span className="font-bold text-xl text-foreground">DEMO</span>
         </Link>
 
         {/* Desktop Navigation */}
