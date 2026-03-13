@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,7 @@ function formatPrice(price: number): string {
 export function CampaignCard({ campaign }: { campaign: any }) {
   const [showOptions, setShowOptions] = useState(false)
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
+  const router = useRouter()
 
   // 1. Fix lỗi biến dữ liệu theo Database của Ninh (title, store_name, price_vnd)
   const options = campaign.campaign_options || []
@@ -37,7 +39,8 @@ export function CampaignCard({ campaign }: { campaign: any }) {
     }
     // 2. Fix lỗi 404: Bỏ bớt /Demo vì Next.js tự điều hướng
     const ids = selectedOptions.join(',')
-    window.location.href = `/order/checkout?id=${campaign.id}&options=${ids}`
+    // Dùng router.push và KHÔNG viết /Demo vào đây
+    router.push(`/order/checkout?id=${campaign.id}&options=${ids}`)
   }
 
   return (
