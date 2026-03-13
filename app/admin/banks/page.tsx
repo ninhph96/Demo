@@ -54,6 +54,16 @@ export default function BankAdminPage() {
     } finally { setLoading(false) }
   }
 
+  const getBankLogo = (shortName: string) => {
+  // Dùng API của VietQR để lấy logo chuẩn của các bank Việt Nam
+  const name = shortName.toLowerCase().replace(/\s/g, '');
+  if (name.includes('vcb') || name.includes('vietcombank')) return 'https://api.vietqr.io/img/VCB.png';
+  if (name.includes('momo')) return 'https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png';
+  if (name.includes('tcb') || name.includes('techcombank')) return 'https://api.vietqr.io/img/TCB.png';
+  if (name.includes('mb') || name.includes('mbbank')) return 'https://api.vietqr.io/img/MB.png';
+  return `https://img.vietqr.io/image/${shortName}-logo.png`; // Fallback tự động
+}
+
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
       <h1 className="text-2xl font-black italic uppercase text-[#8B7CFF] flex items-center gap-2">
