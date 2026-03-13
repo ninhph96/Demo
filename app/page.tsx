@@ -31,7 +31,7 @@ export default function HomePage() {
         <h2 className="text-2xl font-black text-gray-800 mb-8 uppercase italic">Chiến dịch đang mở</h2>
         
         {loading ? (
-          <p className="text-center text-gray-400">Đang lấy dữ liệu từ Hải Phòng...</p>
+          <p className="text-center text-gray-400">Đang lấy dữ liệu từ ...</p>
         ) : campaigns.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {campaigns.map((c: any) => (
