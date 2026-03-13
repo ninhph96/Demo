@@ -1,217 +1,90 @@
 'use client'
-
 import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { CheckCircle2, Copy, MessageCircle, QrCode, ArrowRight, Home } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Header } from '@/components/header'
-import { BottomNav } from '@/components/bottom-nav'
-import { useOrders } from '@/lib/order-context'
 import { useState, Suspense } from 'react'
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
-}
+import { CheckCircle2, Copy, MessageCircle, Home, QrCode } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams()
-  const orderCode = searchParams.get('code')
-  const { getOrderByCode } = useOrders()
-  const order = orderCode ? getOrderByCode(orderCode) : undefined
+  const orderCode = searchParams.get('code') || 'N/A'
+  const total = searchParams.get('total') || '0'
+  const customerName = searchParams.get('name') || 'Khách'
   const [copied, setCopied] = useState(false)
 
-  const copyOrderCode = () => {
-    if (orderCode) {
-      navigator.clipboard.writeText(orderCode)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
+  // Nội dung chuyển khoản : [Tên khách] [Mã_Đơn]
+  const transferContent = `${customerName.toUpperCase()} ${orderCode}`
 
-  if (!order) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-xl font-bold mb-2">Không tìm thấy đơn hàng</h1>
-          <Link href="/">
-            <Button variant="outline" className="rounded-xl">Về trang chủ</Button>
-          </Link>
-        </div>
-      </div>
-    )
+  const copyContent = () => {
+    navigator.clipboard.writeText(transferContent)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
-    <main className="container mx-auto px-4 py-6 max-w-lg">
-      {/* Success Header */}
-      <div className="text-center mb-6">
+    <main className="container mx-auto px-4 py-10 max-w-lg space-y-6">
+      <div className="text-center">
         <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
           <CheckCircle2 className="h-10 w-10 text-emerald-600" />
         </div>
-        <h1 className="text-2xl font-bold text-foreground mb-2">
-          Đặt hàng thành công!
-        </h1>
-        <p className="text-muted-foreground">
-          Cảm ơn bạn đã đặt hàng. Vui lòng thanh toán để hoàn tất.
-        </p>
+        <h1 className="text-2xl font-bold text-gray-800">ĐẶT HÀNG THÀNH CÔNG!</h1>
+        <p className="text-muted-foreground">Mình đã nhận đơn, hãy thanh toán để giữ chỗ nhé.</p>
       </div>
 
-      {/* Order Code */}
-      <Card className="mb-4 border-primary/30 bg-primary/5">
-        <CardContent className="py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Mã đơn hàng</p>
-              <p className="text-2xl font-bold text-primary tracking-wider">
-                {order.orderCode}
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={copyOrderCode}
-              className="rounded-xl"
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-          </div>
-          {copied && (
-            <p className="text-sm text-emerald-600 mt-2">Đã sao chép!</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Order Summary */}
-      <Card className="mb-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Chi tiết đơn hàng</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Chiến dịch</span>
-            <span className="font-medium text-right">{order.campaignName}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Khách hàng</span>
-            <span className="font-medium">{order.customerName}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Số điện thoại</span>
-            <span className="font-medium">{order.phone}</span>
-          </div>
-          
-          <div className="border-t border-border pt-3">
-            <p className="text-sm font-medium mb-2">Sản phẩm:</p>
-            {order.items.map((item, idx) => (
-              <div key={idx} className="flex justify-between text-sm py-1">
-                <span className="text-muted-foreground">
-                  {item.optionName} x{item.quantity}
-                </span>
-                <span className="font-medium">{formatPrice(item.price * item.quantity)}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="border-t border-border pt-3 flex justify-between">
-            <span className="font-semibold">Tổng cộng</span>
-            <span className="text-xl font-bold text-primary">
-              {formatPrice(order.totalAmount)}
-            </span>
-          </div>
-
-          <Badge variant="outline" className="w-full justify-center py-2 text-amber-600 border-amber-300 bg-amber-50">
-            Chưa thanh toán
-          </Badge>
-        </CardContent>
-      </Card>
-
-      {/* Payment Info */}
-      <Card className="mb-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <QrCode className="h-5 w-5 text-primary" />
-            Thanh toán
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-muted/50 rounded-xl p-4 text-center">
-            <div className="w-32 h-32 bg-white border border-border rounded-xl mx-auto mb-3 flex items-center justify-center">
-              <QrCode className="h-20 w-20 text-muted-foreground/30" />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Quét mã QR hoặc chuyển khoản theo thông tin bên dưới
-            </p>
-          </div>
-
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Ngân hàng</span>
-              <span className="font-medium">Vietcombank</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Số tài khoản</span>
-              <span className="font-medium">1234567890</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Chủ tài khoản</span>
-              <span className="font-medium">NGUYEN VAN A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Nội dung CK</span>
-              <span className="font-medium text-primary">{order.orderCode}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Contact Button */}
-      <Card className="mb-6">
-        <CardContent className="py-4">
-          <p className="text-sm text-muted-foreground mb-3 text-center">
-            Sau khi chuyển khoản, vui lòng nhắn tin để xác nhận đơn hàng
+      <Card className="rounded-[32px] overflow-hidden border-none shadow-xl">
+        <div className="bg-[#8B7CFF] p-6 text-white text-center">
+          <p className="text-xs opacity-80">SỐ TIỀN CẦN THANH TOÁN</p>
+          <p className="text-3xl font-black mt-1">
+            {new Intl.NumberFormat('vi-VN').format(Number(total))}đ
           </p>
-          <Button className="w-full rounded-xl h-12" asChild>
-            <a href="https://m.me/yourpage" target="_blank" rel="noopener noreferrer">
-              <MessageCircle className="h-5 w-5 mr-2" />
-              Nhắn Page chốt đơn
+        </div>
+        
+        <CardContent className="p-6 space-y-6 bg-white">
+          {/* Khu vực hiện mã QR từ folder Bank */}
+          <div className="bg-gray-50 rounded-2xl p-4 text-center border-2 border-dashed">
+            <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">Quét mã QR để thanh toán</p>
+            <img 
+              src="https://pojaafndtkxbhityeqmt.supabase.co/storage/v1/object/public/images/Bank/qr-thanh-toan.png" 
+              alt="QR Bank"
+              className="mx-auto w-48 rounded-lg shadow-sm"
+              onError={(e) => { (e.target as any).src = "https://placehold.co/200x200?text=QR+BANK"; }}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-400">NỘI DUNG CHUYỂN KHOẢN</span>
+              <Button variant="ghost" size="sm" onClick={copyContent} className="text-[#8B7CFF] h-6">
+                <Copy className="h-3 w-3 mr-1" /> Copy
+              </Button>
+            </div>
+            <div className="bg-[#F7F6FF] p-4 rounded-xl text-center font-black text-[#8B7CFF] text-lg border border-[#8B7CFF]/20">
+              {transferContent}
+            </div>
+            {copied && <p className="text-center text-[10px] text-emerald-600">Đã copy nội dung!</p>}
+          </div>
+
+          <Button className="w-full rounded-2xl h-12 bg-[#0084FF] hover:bg-[#0073E6]" asChild>
+            <a href="https://m.me/DLThachThao" target="_blank">
+              <MessageCircle className="h-5 w-5 mr-2" /> Nhắn bill cho Mình
             </a>
           </Button>
+
+          <Link href="/">
+            <Button variant="outline" className="w-full rounded-2xl mt-2">
+              <Home className="h-4 w-4 mr-2" /> Về trang chủ
+            </Button>
+          </Link>
         </CardContent>
       </Card>
-
-      {/* Navigation */}
-      <div className="flex gap-3">
-        <Link href={`/track?code=${order.orderCode}`} className="flex-1">
-          <Button variant="outline" className="w-full rounded-xl">
-            Tra cứu đơn
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-        </Link>
-        <Link href="/" className="flex-1">
-          <Button variant="outline" className="w-full rounded-xl">
-            <Home className="h-4 w-4 mr-2" />
-            Trang chủ
-          </Button>
-        </Link>
-      </div>
     </main>
   )
 }
 
 export default function OrderSuccessPage() {
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-8">
-      <Header />
-      <Suspense fallback={
-        <div className="container mx-auto px-4 py-6 text-center">
-          <p>Đang tải...</p>
-        </div>
-      }>
-        <OrderSuccessContent />
-      </Suspense>
-      <BottomNav />
-    </div>
+    <Suspense fallback={<div className="p-10 text-center">Đang tải...</div>}>
+      <OrderSuccessContent />
+    </Suspense>
   )
 }
