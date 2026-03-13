@@ -296,7 +296,7 @@ export default function CampaignsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link href={`/Demo/campaign?id=${campaign.id}`}><Eye className="h-4 w-4 mr-2" /> Xem</Link>
+                            <Link href={`/campaign?id=${campaign.id}`}><Eye className="h-4 w-4 mr-2" /> Xem</Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openModal(campaign)}>
                             <Edit2 className="h-4 w-4 mr-2" /> Sửa
