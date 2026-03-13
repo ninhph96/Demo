@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Search, Filter, Sparkles } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Sparkles, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,69 +14,76 @@ import {
 import { Header } from '@/components/header'
 import { BottomNav } from '@/components/bottom-nav'
 import { CampaignCard } from '@/components/campaign-card'
-import { useOrders } from '@/lib/order-context'
+import { supabase } from '@/lib/supabase'
 import type { CampaignStatus } from '@/lib/types'
 import { storeOptions, campaignStatusLabels } from '@/lib/types'
 
-export default function CampaignsPage() {
-  const { campaigns } = useOrders()
+export default function ExplorePage() {
+  const [campaigns, setCampaigns] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | 'ALL'>('ALL')
   const [storeFilter, setStoreFilter] = useState<string>('ALL')
 
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      setLoading(true)
+      const { data } = await supabase
+        .from('campaigns')
+        .select('*, campaign_options(*)')
+        .neq('status', 'DRAFT')
+      if (data) setCampaigns(data)
+      setLoading(false)
+    }
+    fetchCampaigns()
+  }, [])
+
   const filteredCampaigns = campaigns.filter(c => {
-    // Exclude drafts from public view
-    if (c.status === 'DRAFT') return false
-    
-    // Search filter
-    if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false
-    
+    // Search filter (Database dùng 'title')
+    if (search && !c.title?.toLowerCase().includes(search.toLowerCase())) return false
     // Status filter
     if (statusFilter !== 'ALL' && c.status !== statusFilter) return false
-    
-    // Store filter
-    if (storeFilter !== 'ALL' && c.store !== storeFilter) return false
-    
+    // Store filter (Database dùng 'store_name')
+    if (storeFilter !== 'ALL' && c.store_name !== storeFilter) return false
     return true
   })
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-8">
+    <div className="min-h-screen bg-[#F8F9FD] pb-20 md:pb-8">
       <Header />
-      
       <main className="container mx-auto px-4 py-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Chiến dịch</h1>
-          <p className="text-muted-foreground">Khám phá và đặt hàng các album, goods yêu thích</p>
+          <h1 className="text-2xl font-black text-gray-800 uppercase italic">Khám phá</h1>
+          <p className="text-gray-500 font-medium">Tìm album Kpop yêu thích tại đây</p>
         </div>
 
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8B7CFF]" />
             <Input
-              placeholder="Tìm kiếm chiến dịch..."
+              placeholder="Nhập tên album cần tìm..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 rounded-xl bg-card"
+              className="pl-10 rounded-2xl bg-white border-none shadow-sm h-12"
             />
           </div>
           
           <div className="flex gap-2">
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as CampaignStatus | 'ALL')}>
-              <SelectTrigger className="w-[140px] rounded-xl bg-card">
+              <SelectTrigger className="w-[140px] rounded-2xl bg-white border-none shadow-sm h-12">
                 <SelectValue placeholder="Trạng thái" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">Tất cả</SelectItem>
-                <SelectItem value="OPEN">{campaignStatusLabels.OPEN}</SelectItem>
-                <SelectItem value="CLOSING_SOON">{campaignStatusLabels.CLOSING_SOON}</SelectItem>
-                <SelectItem value="CLOSED">{campaignStatusLabels.CLOSED}</SelectItem>
+                <SelectItem value="OPEN">Đang mở</SelectItem>
+                <SelectItem value="CLOSING_SOON">Sắp đóng</SelectItem>
+                <SelectItem value="CLOSED">Đã đóng</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={storeFilter} onValueChange={setStoreFilter}>
-              <SelectTrigger className="w-[140px] rounded-xl bg-card">
+              <SelectTrigger className="w-[140px] rounded-2xl bg-white border-none shadow-sm h-12">
                 <SelectValue placeholder="Cửa hàng" />
               </SelectTrigger>
               <SelectContent>
@@ -89,41 +96,22 @@ export default function CampaignsPage() {
           </div>
         </div>
 
-        {/* Results */}
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-sm text-muted-foreground">
-            Tìm thấy {filteredCampaigns.length} chiến dịch
-          </span>
-        </div>
-
-        {filteredCampaigns.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        {loading ? (
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#8B7CFF]" /></div>
+        ) : filteredCampaigns.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCampaigns.map((campaign) => (
               <CampaignCard key={campaign.id} campaign={campaign} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-card rounded-2xl border border-border">
-            <Sparkles className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-            <h3 className="font-medium text-foreground mb-2">Không tìm thấy chiến dịch</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm
-            </p>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setSearch('')
-                setStatusFilter('ALL')
-                setStoreFilter('ALL')
-              }}
-              className="rounded-xl"
-            >
-              Xóa bộ lọc
-            </Button>
+          <div className="text-center py-20 bg-white rounded-[32px] shadow-sm">
+            <Sparkles className="h-12 w-12 text-gray-100 mx-auto mb-4" />
+            <h3 className="font-bold text-gray-400">Không tìm thấy kết quả</h3>
+            <Button variant="link" onClick={() => {setSearch(''); setStatusFilter('ALL'); setStoreFilter('ALL')}} className="text-[#8B7CFF]">Xóa bộ lọc</Button>
           </div>
         )}
       </main>
-
       <BottomNav />
     </div>
   )
