@@ -207,7 +207,9 @@ export default function CampaignsPage() {
         .map(o => ({
           campaign_id: campaignId,
           version: o.version,
+          name: o.version,
           price_vnd: parseInt(o.price) || 0,
+          deposit_amount: parseInt(o.deposit) || 0,
           benefit: o.benefit || null,
           label: o.label || null
         }))
