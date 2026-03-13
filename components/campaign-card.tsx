@@ -87,7 +87,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
 
   if (isClickable) {
     return (
-      <Link href={/Demo/campaign?id=${campaign.id}} className="block">
+      <Link href={'/Demo/campaign?id=${campaign.id}'} className="block">
         {cardContent}
       </Link>
     )
