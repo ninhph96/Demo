@@ -36,8 +36,11 @@ interface SelectedOption {
   quantity: number
 }
 
-export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+import { useParams } from 'next/navigation'
+
+export default function CampaignDetailPage() {
+  const params = useParams()
+  const id = params.id as string
   const router = useRouter()
   const { getCampaignById, addOrder } = useOrders()
   const campaign = getCampaignById(id)
