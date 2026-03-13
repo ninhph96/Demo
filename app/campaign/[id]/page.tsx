@@ -1,5 +1,6 @@
 'use client'
-
+export const dynamic = 'force-dynamic';
+export const dynamicParams = true;
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
