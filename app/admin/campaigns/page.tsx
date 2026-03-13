@@ -177,27 +177,37 @@ export default function CampaignsPage() {
     setLoading(true)
 
     try {
+      // KHỚP VỚI ẢNH SUPABASE CỦA NINH
       const campaignData = {
-        name: name, // Đảm bảo biến 'name' không rỗng
-        store: store,
+        title: name,        // Đổi từ 'name' sang 'title'
+        store_name: store,  // Đổi từ 'store' sang 'store_name'
         image_url: imageUrl, 
         status: status,
-        // LOGIC MỚI: Nếu closeDate trống thì gửi null, không bắt buộc nhập
-        close_date: closeDate ? closeDate : null, 
-        description: description
+        description: description,
+        close_date: closeDate ? closeDate : null // Không bắt buộc, bỏ trống sẽ gửi null
       }
 
       let campaignId = editingCampaign?.id
 
       if (editingCampaign) {
-        await supabase.from('campaigns').update(campaignData).eq('id', campaignId)
+        const { error: updateError } = await supabase
+          .from('campaigns')
+          .update(campaignData)
+          .eq('id', campaignId)
+        if (updateError) throw updateError
+        
         await supabase.from('campaign_options').delete().eq('campaign_id', campaignId)
       } else {
-        const { data, error } = await supabase.from('campaigns').insert([campaignData]).select().single()
-        if (error) throw error
+        const { data, error: insertError } = await supabase
+          .from('campaigns')
+          .insert([campaignData])
+          .select()
+          .single()
+        if (insertError) throw insertError
         campaignId = data.id
       }
 
+      // Chèn các Options (Ninh kiểm tra xem bảng campaign_options cột có đúng là campaign_id không nhé)
       const optionsToInsert = options
         .filter(o => o.version && o.price)
         .map(o => ({
@@ -208,14 +218,16 @@ export default function CampaignsPage() {
           label: o.label || null
         }))
 
-      await supabase.from('campaign_options').insert(optionsToInsert)
+      const { error: optionsError } = await supabase
+        .from('campaign_options')
+        .insert(optionsToInsert)
+      if (optionsError) throw optionsError
 
-      alert("Đăng chiến dịch thành công rồi nhé Ninh!")
+      alert("Tuyệt vời Ninh ơi! Đã đăng thành công sản phẩm đầu tiên rồi nhé!")
       setIsModalOpen(false)
-      fetchCampaigns() // Load lại danh sách
+      fetchCampaigns()
     } catch (error: any) {
-      // Nếu vẫn báo lỗi cột, Ninh hãy kiểm tra lại chính xác tên cột trong bảng campaigns nhé
-      alert("Lỗi: " + error.message)
+      alert("Lỗi vẫn còn nè: " + error.message)
     } finally {
       setLoading(false)
     }
