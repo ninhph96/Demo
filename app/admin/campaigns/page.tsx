@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Search, Edit2, Trash2, Eye, MoreVertical, Link2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,16 +36,17 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useOrders } from '@/lib/order-context'
 import { campaignStatusLabels, storeOptions } from '@/lib/types'
-import type { Campaign, CampaignStatus, CampaignOption } from '@/lib/types'
+import type { Campaign, CampaignStatus } from '@/lib/types'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase' // Đảm bảo file này đã có URL/Key của bạn
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
 }
 
 function formatDate(dateStr: string): string {
+  if (!dateStr) return 'Chưa đặt'
   return new Date(dateStr).toLocaleDateString('vi-VN')
 }
 
@@ -60,6 +61,7 @@ function getStatusColor(status: CampaignStatus): string {
 }
 
 interface OptionForm {
+  id?: string
   version: string
   price: string
   benefit: string
@@ -69,10 +71,11 @@ interface OptionForm {
 const emptyOption: OptionForm = { version: '', price: '', benefit: '', label: '' }
 
 export default function CampaignsPage() {
-  const { campaigns, addCampaign, updateCampaign, deleteCampaign, getOrdersByCampaign } = useOrders()
+  const [dbCampaigns, setDbCampaigns] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null)
+  const [editingCampaign, setEditingCampaign] = useState<any | null>(null)
+  const [loading, setLoading] = useState(false)
   
   // Form state
   const [name, setName] = useState('')
@@ -88,13 +91,27 @@ export default function CampaignsPage() {
   const [isScraperLoading, setIsScraperLoading] = useState(false)
   const [scraperError, setScraperError] = useState('')
 
-  // Auto-scraper function
+  // Lấy dữ liệu từ Supabase khi mở trang
+  const fetchCampaigns = async () => {
+    const { data, error } = await supabase
+      .from('campaigns')
+      .select('*, campaign_options(*)')
+      .order('created_at', { ascending: false })
+    
+    if (data) setDbCampaigns(data)
+    if (error) console.error("Lỗi lấy dữ liệu:", error)
+  }
+
+  useEffect(() => {
+    fetchCampaigns()
+  }, [])
+
+  // Phương án 1: Tự động quét dữ liệu
   const handleAutoFill = async () => {
     if (!scraperUrl.trim()) {
       setScraperError('Vui lòng nhập URL')
       return
     }
-
     setIsScraperLoading(true)
     setScraperError('')
 
@@ -105,57 +122,36 @@ export default function CampaignsPage() {
       
       if (data.contents) {
         const html = data.contents
-        
-        // Extract og:title
-        const titleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
-                          html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i)
-        if (titleMatch) {
-          setName(titleMatch[1])
-        }
-        
-        // Extract og:image
-        const imageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
-                          html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
-        if (imageMatch) {
-          setImageUrl(imageMatch[1])
-        }
+        const titleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
+        const imageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
 
-        // Auto-detect store from URL
-        if (scraperUrl.includes('aladin')) {
-          setStore('Aladin')
-        } else if (scraperUrl.includes('ktown4u')) {
-          setStore('Ktown4U')
-        } else if (scraperUrl.includes('weverse')) {
-          setStore('Weverse Shop')
-        }
+        if (titleMatch) setName(titleMatch[1])
+        if (imageMatch) setImageUrl(imageMatch[1])
 
-        if (!titleMatch && !imageMatch) {
-          setScraperError('Không tìm thấy thông tin. Vui lòng nhập thủ công.')
-        }
-      } else {
-        setScraperError('Không thể tải trang web')
+        if (scraperUrl.includes('aladin')) setStore('Aladin')
+        else if (scraperUrl.includes('ktown4u')) setStore('Ktown4U')
+        else if (scraperUrl.includes('weverse')) setStore('Weverse Shop')
+
+        if (!titleMatch && !imageMatch) setScraperError('Không tìm thấy thông tin. Hãy nhập tay.')
       }
     } catch (error) {
-      setScraperError('Lỗi khi quét dữ liệu. Vui lòng thử lại.')
+      setScraperError('Lỗi khi quét. Hãy nhập tay bên dưới.')
     } finally {
       setIsScraperLoading(false)
     }
   }
 
-  const filteredCampaigns = campaigns.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const openModal = (campaign?: Campaign) => {
+  const openModal = (campaign?: any) => {
     if (campaign) {
       setEditingCampaign(campaign)
       setName(campaign.name)
       setStore(campaign.store)
-      setImageUrl(campaign.imageUrl)
+      setImageUrl(campaign.image_url || '')
       setStatus(campaign.status)
-      setCloseDate(campaign.closeDate)
+      setCloseDate(campaign.close_date || '')
       setDescription(campaign.description || '')
-      setOptions(campaign.options.map(o => ({
+      setOptions(campaign.campaign_options.map((o: any) => ({
+        id: o.id,
         version: o.version,
         price: o.price.toString(),
         benefit: o.benefit || '',
@@ -165,8 +161,8 @@ export default function CampaignsPage() {
       setEditingCampaign(null)
       setName('')
       setStore('')
-      setImageUrl('https://images.unsplash.com/photo-1619983081563-430f63602796?w=400&h=400&fit=crop')
-      setStatus('DRAFT')
+      setImageUrl('')
+      setStatus('OPEN')
       setCloseDate('')
       setDescription('')
       setOptions([{ ...emptyOption }])
@@ -176,73 +172,61 @@ export default function CampaignsPage() {
     setIsModalOpen(true)
   }
 
-  const closeModal = () => {
-    setIsModalOpen(false)
-    setEditingCampaign(null)
-  }
-
-  const addOption = () => {
-    setOptions([...options, { ...emptyOption }])
-  }
-
-  const removeOption = (index: number) => {
-    if (options.length > 1) {
-      setOptions(options.filter((_, i) => i !== index))
-    }
-  }
-
-  const updateOption = (index: number, field: keyof OptionForm, value: string) => {
-    const newOptions = [...options]
-    newOptions[index] = { ...newOptions[index], [field]: value }
-    setOptions(newOptions)
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    const campaignOptions: CampaignOption[] = options
-      .filter(o => o.version && o.price)
-      .map((o, idx) => ({
-        id: editingCampaign?.options[idx]?.id || `opt-${Date.now()}-${idx}`,
-        version: o.version,
-        price: parseInt(o.price) || 0,
-        benefit: o.benefit || undefined,
-        label: o.label || undefined
-      }))
+    setLoading(true)
 
-    if (editingCampaign) {
-      updateCampaign(editingCampaign.id, {
+    try {
+      const campaignData = {
         name,
         store,
-        imageUrl,
+        image_url: imageUrl,
         status,
-        closeDate,
-        description: description || undefined,
-        options: campaignOptions
-      })
-    } else {
-      addCampaign({
-        name,
-        store,
-        imageUrl,
-        status,
-        closeDate,
-        description: description || undefined,
-        options: campaignOptions
-      })
+        close_date: closeDate || null,
+        description
+      }
+
+      let campaignId = editingCampaign?.id
+
+      if (editingCampaign) {
+        // Cập nhật Campaign
+        await supabase.from('campaigns').update(campaignData).eq('id', campaignId)
+        // Xóa options cũ để chèn lại cho sạch
+        await supabase.from('campaign_options').delete().eq('campaign_id', campaignId)
+      } else {
+        // Tạo Campaign mới
+        const { data, error } = await supabase.from('campaigns').insert([campaignData]).select().single()
+        if (error) throw error
+        campaignId = data.id
+      }
+
+      // Chèn các Options
+      const optionsToInsert = options
+        .filter(o => o.version && o.price)
+        .map(o => ({
+          campaign_id: campaignId,
+          version: o.version,
+          price: parseInt(o.price) || 0,
+          benefit: o.benefit || null,
+          label: o.label || null
+        }))
+
+      await supabase.from('campaign_options').insert(optionsToInsert)
+
+      alert("Lưu chiến dịch thành công!")
+      setIsModalOpen(false)
+      fetchCampaigns()
+    } catch (error: any) {
+      alert("Lỗi: " + error.message)
+    } finally {
+      setLoading(false)
     }
-    
-    closeModal()
   }
 
-  const handleDelete = (campaign: Campaign) => {
-    const orderCount = getOrdersByCampaign(campaign.id).length
-    if (orderCount > 0) {
-      alert(`Không thể xóa chiến dịch này vì có ${orderCount} đơn hàng liên quan.`)
-      return
-    }
-    if (confirm(`Bạn có chắc muốn xóa chiến dịch "${campaign.name}"?`)) {
-      deleteCampaign(campaign.id)
+  const handleDelete = async (campaign: any) => {
+    if (confirm(`Xóa chiến dịch "${campaign.name}"? Dữ liệu đơn hàng liên quan cũng sẽ bị ảnh hưởng.`)) {
+      await supabase.from('campaigns').delete().eq('id', campaign.id)
+      fetchCampaigns()
     }
   }
 
@@ -250,293 +234,117 @@ export default function CampaignsPage() {
     <div className="p-4 lg:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Quản lý chiến dịch</h1>
-          <p className="text-muted-foreground">Tạo và quản lý các chiến dịch Group Order</p>
+          <h1 className="text-2xl font-bold text-[#8B7CFF]">Quản lý chiến dịch</h1>
+          <p className="text-muted-foreground">Dữ liệu thật từ Supabase</p>
         </div>
-        <Button onClick={() => openModal()} className="rounded-xl">
-          <Plus className="h-4 w-4 mr-2" />
-          Tạo chiến dịch
+        <Button onClick={() => openModal()} className="rounded-xl bg-[#8B7CFF] hover:bg-[#7A6BEB]">
+          <Plus className="h-4 w-4 mr-2" /> Tạo chiến dịch
         </Button>
       </div>
 
-      {/* Search */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Tìm kiếm chiến dịch..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 rounded-xl"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <Card className="mb-6"><CardContent className="pt-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Tìm kiếm tên album..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 rounded-xl" />
+        </div>
+      </CardContent></Card>
 
-      {/* Campaigns Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tên chiến dịch</TableHead>
-                  <TableHead>Cửa hàng</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Ngày đóng</TableHead>
-                  <TableHead>Số đơn</TableHead>
-                  <TableHead className="w-[100px]">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCampaigns.length > 0 ? (
-                  filteredCampaigns.map((campaign) => {
-                    const orderCount = getOrdersByCampaign(campaign.id).length
-                    return (
-                      <TableRow key={campaign.id}>
-                        <TableCell>
-                          <div className="font-medium">{campaign.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {campaign.options.length} phiên bản
-                          </div>
-                        </TableCell>
-                        <TableCell>{campaign.store}</TableCell>
-                        <TableCell>
-                          <Badge className={`${getStatusColor(campaign.status)} border`}>
-                            {campaignStatusLabels[campaign.status]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{formatDate(campaign.closeDate)}</TableCell>
-                        <TableCell>{orderCount}</TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {campaign.status !== 'DRAFT' && (
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/campaign/${campaign.id}`}>
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    Xem
-                                  </Link>
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem onClick={() => openModal(campaign)}>
-                                <Edit2 className="h-4 w-4 mr-2" />
-                                Sửa
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleDelete(campaign)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Xóa
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      Không tìm thấy chiến dịch nào
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      <Card><CardContent className="p-0"><div className="overflow-x-auto">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Chiến dịch</TableHead>
+            <TableHead>Cửa hàng</TableHead>
+            <TableHead>Trạng thái</TableHead>
+            <TableHead>Ngày đóng</TableHead>
+            <TableHead className="w-[100px]">Thao tác</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {dbCampaigns.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).map((campaign) => (
+              <TableRow key={campaign.id}>
+                <TableCell>
+                  <div className="font-bold text-gray-800">{campaign.name}</div>
+                  <div className="text-xs text-muted-foreground">{campaign.campaign_options?.length || 0} phiên bản</div>
+                </TableCell>
+                <TableCell><Badge variant="outline">{campaign.store}</Badge></TableCell>
+                <TableCell><Badge className={`${getStatusColor(campaign.status)} border`}>{campaignStatusLabels[campaign.status]}</Badge></TableCell>
+                <TableCell>{formatDate(campaign.close_date)}</TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild><Link href={`/campaign?id=${campaign.id}`}><Eye className="h-4 w-4 mr-2" /> Xem</Link></DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openModal(campaign)}><Edit2 className="h-4 w-4 mr-2" /> Sửa</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDelete(campaign)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Xóa</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div></CardContent></Card>
 
-      {/* Campaign Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingCampaign ? 'Chỉnh sửa chiến dịch' : 'Tạo chiến dịch mới'}
-            </DialogTitle>
-          </DialogHeader>
-          
+          <DialogHeader><DialogTitle>{editingCampaign ? 'Cập nhật' : 'Tạo mới'} chiến dịch</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Auto-scraper Section */}
+            
+            {/* Phương án 1: Scraper */}
             {!editingCampaign && (
-              <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
-                <div className="flex items-center gap-2">
-                  <Link2 className="h-4 w-4 text-primary" />
-                  <Label className="font-medium text-primary">Tự động điền từ URL</Label>
-                </div>
+              <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-3">
+                <Label className="font-bold text-[#8B7CFF] flex items-center gap-2"><Link2 className="h-4 w-4" /> Phương án 1: Tự điền từ URL Aladin/Weverse</Label>
                 <div className="flex gap-2">
-                  <Input
-                    value={scraperUrl}
-                    onChange={(e) => setScraperUrl(e.target.value)}
-                    placeholder="Dán link Aladin, Ktown4U, Weverse..."
-                    className="rounded-xl flex-1"
-                  />
-                  <Button 
-                    type="button" 
-                    variant="secondary"
-                    onClick={handleAutoFill}
-                    disabled={isScraperLoading}
-                    className="rounded-xl"
-                  >
-                    {isScraperLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Đang quét...
-                      </>
-                    ) : (
-                      'Quét dữ liệu'
-                    )}
+                  <Input value={scraperUrl} onChange={(e) => setScraperUrl(e.target.value)} placeholder="Dán link sản phẩm vào đây..." className="rounded-xl flex-1" />
+                  <Button type="button" variant="secondary" onClick={handleAutoFill} disabled={isScraperLoading}>
+                    {isScraperLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Quét'}
                   </Button>
                 </div>
-                {scraperError && (
-                  <p className="text-sm text-destructive">{scraperError}</p>
-                )}
+                {scraperError && <p className="text-xs text-red-500">{scraperError}</p>}
               </div>
             )}
 
+            {/* Phương án 2: Điền tay */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="name">Tên chiến dịch *</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="BTS - Album mới"
-                  required
-                  className="rounded-xl"
-                />
+              <div className="col-span-2 space-y-1">
+                <Label>Tên album *</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="VD: NewJeans 2nd EP 'Get Up'" />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="store">Cửa hàng *</Label>
+              <div className="space-y-1">
+                <Label>Cửa hàng *</Label>
                 <Select value={store} onValueChange={setStore} required>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue placeholder="Chọn cửa hàng" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {storeOptions.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger><SelectValue placeholder="Chọn Store" /></SelectTrigger>
+                  <SelectContent>{storeOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Trạng thái *</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as CampaignStatus)}>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="DRAFT">Nháp</SelectItem>
-                    <SelectItem value="OPEN">Đang mở</SelectItem>
-                    <SelectItem value="CLOSING_SOON">Sắp đóng</SelectItem>
-                    <SelectItem value="CLOSED">Đã đóng</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-1">
+                <Label>Ngày đóng</Label>
+                <Input type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="closeDate">Ngày đóng *</Label>
-                <Input
-                  id="closeDate"
-                  type="date"
-                  value={closeDate}
-                  onChange={(e) => setCloseDate(e.target.value)}
-                  required
-                  className="rounded-xl"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="imageUrl">URL hình ảnh</Label>
-                <Input
-                  id="imageUrl"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="rounded-xl"
-                />
-              </div>
-
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="description">Mô tả</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Mô tả chi tiết về chiến dịch..."
-                  className="rounded-xl"
-                />
+              <div className="col-span-2 space-y-1">
+                <Label>URL Ảnh bìa</Label>
+                <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="Dán link ảnh tại đây..." />
+                {imageUrl && <img src={imageUrl} className="h-20 w-20 mt-2 rounded border object-cover" />}
               </div>
             </div>
 
-            {/* Options */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Phiên bản / Option *</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addOption} className="rounded-lg">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Thêm
-                </Button>
-              </div>
-              
+              <div className="flex justify-between items-center"><Label className="font-bold">Các phiên bản & Giá</Label>
+              <Button type="button" variant="outline" size="sm" onClick={() => setOptions([...options, { ...emptyOption }])}>+ Thêm bản</Button></div>
               {options.map((option, index) => (
-                <div key={index} className="grid grid-cols-12 gap-2 p-3 bg-muted/50 rounded-xl">
-                  <Input
-                    placeholder="Tên phiên bản"
-                    value={option.version}
-                    onChange={(e) => updateOption(index, 'version', e.target.value)}
-                    className="col-span-4 rounded-lg"
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Giá (VND)"
-                    value={option.price}
-                    onChange={(e) => updateOption(index, 'price', e.target.value)}
-                    className="col-span-3 rounded-lg"
-                  />
-                  <Input
-                    placeholder="Benefit"
-                    value={option.benefit}
-                    onChange={(e) => updateOption(index, 'benefit', e.target.value)}
-                    className="col-span-2 rounded-lg"
-                  />
-                  <Input
-                    placeholder="Label"
-                    value={option.label}
-                    onChange={(e) => updateOption(index, 'label', e.target.value)}
-                    className="col-span-2 rounded-lg"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeOption(index)}
-                    disabled={options.length === 1}
-                    className="col-span-1"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                <div key={index} className="grid grid-cols-12 gap-2 p-3 bg-gray-50 rounded-xl border">
+                  <Input placeholder="Bản A/B/C" value={option.version} onChange={(e) => {
+                    const n = [...options]; n[index].version = e.target.value; setOptions(n);
+                  }} className="col-span-5" />
+                  <Input type="number" placeholder="Giá VND" value={option.price} onChange={(e) => {
+                    const n = [...options]; n[index].price = e.target.value; setOptions(n);
+                  }} className="col-span-5" />
+                  <Button type="button" variant="ghost" className="col-span-2 text-red-500" onClick={() => setOptions(options.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               ))}
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeModal} className="rounded-xl">
-                Hủy
-              </Button>
-              <Button type="submit" className="rounded-xl">
-                {editingCampaign ? 'Cập nhật' : 'Tạo chiến dịch'}
-              </Button>
+              <Button type="submit" disabled={loading} className="w-full bg-[#8B7CFF]">{loading ? 'Đang lưu...' : 'Lưu chiến dịch'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
