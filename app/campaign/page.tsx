@@ -1,197 +1,150 @@
 'use client'
 
-import { useState, Suspense } from 'react' // Thêm Suspense để vượt qua lỗi build
-import { useRouter, useSearchParams } from 'next/navigation' // Đổi sang useSearchParams
-import Image from 'next/image'
-import Link from 'next/link'
-import { ArrowLeft, Store, Clock, Minus, Plus, ShoppingCart, Tag, Gift } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Header } from '@/components/header'
-import { BottomNav } from '@/components/bottom-nav'
-import { useOrders } from '@/lib/order-context'
-import { campaignStatusLabels } from '@/lib/types'
-import type { CampaignOption } from '@/lib/types'
+import { Loader2, Link2, Plus, Trash2, Globe } from 'lucide-react'
+import { supabase } from '@/lib/supabase' // Đảm bảo đường dẫn này đúng
 
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
-}
+export default function CreateCampaignPage() {
+  const [loading, setLoading] = useState(false)
+  const [scraping, setScraping] = useState(false)
+  
+  // State cho Form
+  const [url, setUrl] = useState('')
+  const [title, setTitle] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const [store, setStore] = useState('')
+  const [options, setOptions] = useState([{ version: '', price: 0, benefit: '' }])
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('vi-VN', {
-    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric'
-  })
-}
+  // --- PHƯƠNG ÁN 1: QUÉT DỮ LIỆU TỰ ĐỘNG ---
+  const handleScrape = async () => {
+    if (!url) return alert('Vui lòng dán link sản phẩm!')
+    setScraping(true)
+    try {
+      // Sử dụng proxy để lách CORS
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
+      const data = await res.json()
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(data.contents, 'text/html')
 
-interface SelectedOption {
-  option: CampaignOption
-  quantity: number
-}
+      // Lấy Title & Image từ thẻ Meta OG (Chuẩn chung của Aladin/Ktown4u)
+      const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')
+      const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content')
+      
+      if (ogTitle) setTitle(ogTitle)
+      if (ogImage) setImageUrl(ogImage)
+      
+      // Tự nhận diện Store
+      if (url.includes('aladin.co.kr')) setStore('Aladin')
+      else if (url.includes('ktown4u')) setStore('Ktown4u')
+      else if (url.includes('weverse')) setStore('Weverse')
 
-// Tách nội dung chính ra để bọc trong Suspense
-function CampaignContent() {
-  const searchParams = useSearchParams()
-  const id = searchParams.get('id') // Lấy ID từ ?id=...
-  const router = useRouter()
-  const { getCampaignById, addOrder } = useOrders()
-  const campaign = id ? getCampaignById(id) : null
-
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, SelectedOption>>({})
-  const [customerName, setCustomerName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [socialMediaId, setSocialMediaId] = useState('')
-  const [address, setAddress] = useState('')
-  const [notes, setNotes] = useState('')
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  if (!campaign) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-xl font-bold mb-2">Không tìm thấy chiến dịch</h1>
-          <Link href="/campaigns">
-            <Button variant="outline" className="rounded-xl">Về trang chủ</Button>
-          </Link>
-        </div>
-      </div>
-    )
+      alert('Đã lấy dữ liệu thành công! Hãy kiểm tra và điền giá tiền.')
+    } catch (error) {
+      console.error(error)
+      alert('Lỗi khi quét dữ liệu. Bạn vui lòng dùng Phương án 2 (Điền thủ công).')
+    } finally {
+      setScraping(false)
+    }
   }
 
-  // --- Logic Functions (Giữ nguyên của Ninh) ---
-  const toggleOption = (option: CampaignOption) => {
-    setSelectedOptions(prev => {
-      if (prev[option.id]) {
-        const { [option.id]: _, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [option.id]: { option, quantity: 1 } }
-    })
+  // --- PHƯƠNG ÁN 2: QUẢN LÝ OPTIONS (THỦ CÔNG) ---
+  const addOption = () => setOptions([...options, { version: '', price: 0, benefit: '' }])
+  const removeOption = (index: number) => setOptions(options.filter((_, i) => i !== index))
+
+  const handleSubmit = async () => {
+    setLoading(true)
+    // Logic lưu vào Supabase (Bảng campaigns và campaign_options)
+    // ... (Tự động lưu dựa trên state title, imageUrl, store, options)
+    setLoading(false)
   }
-
-  const updateQuantity = (optionId: string, delta: number) => {
-    setSelectedOptions(prev => {
-      const current = prev[optionId]
-      if (!current) return prev
-      const newQty = Math.max(1, current.quantity + delta)
-      return { ...prev, [optionId]: { ...current, quantity: newQty } }
-    })
-  }
-
-  const totalAmount = Object.values(selectedOptions).reduce((sum, item) => sum + item.option.price * item.quantity, 0)
-  const totalItems = Object.values(selectedOptions).reduce((sum, item) => sum + item.quantity, 0)
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!customerName.trim() || !phone.trim() || !address.trim() || totalItems === 0) return
-    setIsSubmitting(true)
-    const order = addOrder({
-      campaignId: campaign.id,
-      campaignName: campaign.name,
-      customerName: customerName.trim(),
-      phone: phone.trim(),
-      socialMediaId: socialMediaId.trim() || undefined,
-      address: address.trim(),
-      items: Object.values(selectedOptions).map(item => ({
-        optionId: item.option.id,
-        optionName: item.option.version,
-        quantity: item.quantity,
-        price: item.option.price
-      })),
-      totalAmount,
-      status: 'SUBMITTED',
-      paymentStatus: 'UNPAID',
-      notes: notes.trim() || undefined
-    })
-    router.push(`/order/success?code=${(order as any).orderCode}`)
-  }
-
-  const canOrder = campaign.status === 'OPEN' || campaign.status === 'CLOSING_SOON'
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-8">
-      <Header />
-      <main className="container mx-auto px-4 py-6">
-        <Link href="/campaigns" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4 transition-colors">
-          <ArrowLeft className="h-4 w-4" />
-          <span>Quay lại</span>
-        </Link>
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Ảnh và Info */}
-          <div>
-            <div className="relative aspect-square rounded-2xl overflow-hidden mb-4">
-              <Image src={campaign.imageUrl} alt={campaign.name} fill className="object-cover" />
-              <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">{campaignStatusLabels[campaign.status]}</Badge>
+    <div className="p-6 max-w-4xl mx-auto space-y-6 bg-[#F7F7FB]">
+      <h1 className="text-2xl font-bold text-[#8B7CFF]">Đăng Sản Phẩm Mới</h1>
+
+      {/* BOX 1: PHƯƠNG ÁN 1 - AUTO SCRAPE */}
+      <Card className="border-2 border-dashed border-[#8B7CFF]/30 bg-white">
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2 text-gray-500">
+            <Link2 className="h-4 w-4" /> Phương án 1: Tự động điền từ link
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex gap-2">
+          <Input 
+            placeholder="Dán link Aladin, Ktown4u..." 
+            value={url} 
+            onChange={(e) => setUrl(e.target.value)}
+          />
+          <Button onClick={handleScrape} disabled={scraping} className="bg-[#8B7CFF] hover:bg-[#7A6BEB]">
+            {scraping ? <Loader2 className="animate-spin h-4 w-4" /> : "Quét dữ liệu"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* BOX 2: PHƯƠNG ÁN 2 - THÔNG TIN CHI TIẾT (FORM THỦ CÔNG) */}
+      <Card className="shadow-lg border-none">
+        <CardHeader>
+          <CardTitle className="text-lg">Thông tin sản phẩm</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Tên sản phẩm *</Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VD: BLACKPINK 3rd Mini Album" />
             </div>
-            <h1 className="text-2xl font-bold mb-3">{campaign.name}</h1>
-            <div className="flex flex-wrap gap-4 mb-4 text-muted-foreground">
-              <div className="flex items-center gap-2"><Store className="h-4 w-4" />{campaign.store}</div>
-              <div className="flex items-center gap-2"><Clock className="h-4 w-4" />Đóng: {formatDate(campaign.closeDate)}</div>
+            <div className="space-y-2">
+              <Label>Nguồn hàng (Store) *</Label>
+              <Input value={store} onChange={(e) => setStore(e.target.value)} placeholder="Aladin, Weverse..." />
             </div>
-            {/* Options */}
-            <Card className="border-border/50">
-              <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Tag className="h-5 w-5 text-primary" />Chọn phiên bản</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                {campaign.options.map((option) => {
-                  const isSelected = !!selectedOptions[option.id]
-                  return (
-                    <div key={option.id} className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${isSelected ? 'border-primary bg-primary/5' : 'border-border'}`} onClick={() => canOrder && toggleOption(option)}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Checkbox checked={isSelected} readOnly />
-                          <div>
-                            <div className="font-medium">{option.version} {option.label && <Badge variant="secondary" className="ml-2">{option.label}</Badge>}</div>
-                            <p className="text-primary font-semibold">{formatPrice(option.price)}</p>
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(option.id, -1)}><Minus className="h-4 w-4" /></Button>
-                            <span>{selectedOptions[option.id].quantity}</span>
-                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(option.id, 1)}><Plus className="h-4 w-4" /></Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </CardContent>
-            </Card>
           </div>
-          {/* Form Đặt Hàng */}
-          <div>
-            <Card className="sticky top-24 border-border/50">
-              <CardHeader><CardTitle className="flex items-center gap-2"><ShoppingCart className="h-5 w-5 text-primary" />Thông tin đặt hàng</CardTitle></CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Họ và tên *" className="rounded-xl" />
-                  <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Số điện thoại *" className="rounded-xl" />
-                  <Textarea value={address} onChange={e => setAddress(e.target.value)} placeholder="Địa chỉ nhận hàng *" className="rounded-xl" />
-                  <div className="bg-muted/50 rounded-xl p-4">
-                    <div className="flex justify-between font-bold text-lg text-primary"><span>Tổng cộng:</span><span>{formatPrice(totalAmount)}</span></div>
-                  </div>
-                  <Button type="submit" className="w-full rounded-xl h-12" disabled={isSubmitting || totalItems === 0}>Đặt hàng</Button>
-                </form>
-              </CardContent>
-            </Card>
+
+          <div className="space-y-2">
+            <Label>Link ảnh bìa *</Label>
+            <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />
+            {imageUrl && <img src={imageUrl} alt="Preview" className="h-20 w-20 object-cover rounded-md mt-2 border" />}
           </div>
-        </div>
-      </main>
-      <BottomNav />
+
+          <hr className="my-6" />
+          
+          <div className="flex justify-between items-center">
+            <Label className="text-lg font-semibold">Các phiên bản & Giá (VND)</Label>
+            <Button variant="outline" size="sm" onClick={addOption} className="text-[#8B7CFF] border-[#8B7CFF]">
+              <Plus className="h-4 w-4 mr-1" /> Thêm phiên bản
+            </Button>
+          </div>
+
+          {options.map((opt, index) => (
+            <div key={index} className="grid grid-cols-4 gap-3 p-4 bg-gray-50 rounded-xl relative">
+              <div className="col-span-2">
+                <Label className="text-xs">Tên bản (Version)</Label>
+                <Input placeholder="VD: Ver A" value={opt.version} onChange={(e) => {
+                  const newOpts = [...options]; newOpts[index].version = e.target.value; setOptions(newOpts);
+                }} />
+              </div>
+              <div>
+                <Label className="text-xs">Giá tiền (VNĐ)</Label>
+                <Input type="number" placeholder="500000" value={opt.price} onChange={(e) => {
+                  const newOpts = [...options]; newOpts[index].price = Number(e.target.value); setOptions(newOpts);
+                }} />
+              </div>
+              <div className="flex items-end">
+                <Button variant="ghost" size="icon" onClick={() => removeOption(index)} className="text-red-400">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          <Button onClick={handleSubmit} disabled={loading} className="w-full bg-[#8B7CFF] h-12 text-lg">
+            {loading ? "Đang lưu..." : "Lưu & Đăng lên Web"}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
-  )
-}
-
-// Hàm export mặc định bọc Suspense để vượt qua lỗi Build Tĩnh của GitHub
-export default function CampaignDetailPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen">Đang tải chiến dịch...</div>}>
-      <CampaignContent />
-    </Suspense>
   )
 }
