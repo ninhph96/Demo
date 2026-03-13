@@ -38,12 +38,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { campaignStatusLabels, storeOptions } from '@/lib/types'
 import type { CampaignStatus } from '@/lib/types'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
-}
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return 'Chưa đặt'
@@ -64,11 +59,12 @@ interface OptionForm {
   id?: string
   version: string
   price: string
+  deposit: string // Thêm trường deposit cho form
   benefit: string
   label: string
 }
 
-const emptyOption: OptionForm = { version: '', price: '', benefit: '', label: '' }
+const emptyOption: OptionForm = { version: '', price: '', deposit: '', benefit: '', label: '' }
 
 export default function CampaignsPage() {
   const [dbCampaigns, setDbCampaigns] = useState<any[]>([])
@@ -94,91 +90,31 @@ export default function CampaignsPage() {
       .from('campaigns')
       .select('*, campaign_options(*)')
       .order('created_at', { ascending: false })
-    
     if (data) setDbCampaigns(data)
-    if (error) console.error("Lỗi lấy dữ liệu:", error)
   }
 
-  const searchParams = useSearchParams()
-const editId = searchParams.get('id')
-
-useEffect(() => {
-  if (editId) {
-    const fetchCampaignData = async () => {
-      // Lấy thông tin chiến dịch và các phiên bản (options) của nó
-      const { data, error } = await supabase
-        .from('campaigns')
-        .select('*, campaign_options(*)')
-        .eq('id', editId)
-        .single()
-
-      if (data) {
-        // Đổ dữ liệu vào Form
-        setFormData({
-          title: data.title,
-          description: data.description,
-          image_url: data.image_url,
-          status: data.status,
-          store_name: data.store_name
-        })
-        // Nếu Ninh có lưu options thì đổ vào đây luôn
-        setOptions(data.campaign_options || [])
-      }
-    }
-    fetchCampaignData()
-  }
-}, [editId])
-
-  const handleAutoFill = async () => {
-    if (!scraperUrl.trim()) {
-      setScraperError('Vui lòng nhập URL')
-      return
-    }
-    setIsScraperLoading(true)
-    setScraperError('')
-
-    try {
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(scraperUrl)}`
-      const response = await fetch(proxyUrl)
-      const data = await response.json()
-      
-      if (data.contents) {
-        const html = data.contents
-        const titleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
-        const imageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
-
-        if (titleMatch) setName(titleMatch[1])
-        if (imageMatch) setImageUrl(imageMatch[1])
-
-        if (scraperUrl.includes('aladin')) setStore('Aladin')
-        else if (scraperUrl.includes('ktown4u')) setStore('Ktown4U')
-        else if (scraperUrl.includes('weverse')) setStore('Weverse Shop')
-
-        if (!titleMatch && !imageMatch) setScraperError('Không tìm thấy thông tin. Hãy nhập tay.')
-      }
-    } catch (error) {
-      setScraperError('Lỗi khi quét. Hãy nhập tay bên dưới.')
-    } finally {
-      setIsScraperLoading(false)
-    }
-  }
+  useEffect(() => { fetchCampaigns() }, [])
 
   const openModal = (campaign?: any) => {
     if (campaign) {
       setEditingCampaign(campaign)
-      setName(campaign.title) // Fix: Database dùng 'title'
-      setStore(campaign.store_name) // Fix: Database dùng 'store_name'
+      setName(campaign.title || '')
+      setStore(campaign.store_name || '')
       setImageUrl(campaign.image_url || '')
-      setStatus(campaign.status)
+      setStatus(campaign.status || 'DRAFT')
       setCloseDate(campaign.close_date || '')
       setDescription(campaign.description || '')
-      setOptions(campaign.campaign_options.map((o: any) => ({
-        id: o.id,
-        version: o.version,
-        price: o.price_vnd ? o.price_vnd.toString() : '0', // Fix: Dùng price_vnd
-        benefit: o.benefit || '',
-        label: o.label || ''
-      })))
+      setOptions(campaign.campaign_options?.length > 0 
+        ? campaign.campaign_options.map((o: any) => ({
+            id: o.id,
+            version: o.version || '',
+            price: o.price_vnd?.toString() || '0',
+            deposit: o.deposit_amount?.toString() || '0',
+            benefit: o.benefit || '',
+            label: o.label || ''
+          }))
+        : [{ ...emptyOption }]
+      )
     } else {
       setEditingCampaign(null)
       setName('')
@@ -188,8 +124,6 @@ useEffect(() => {
       setCloseDate('')
       setDescription('')
       setOptions([{ ...emptyOption }])
-      setScraperUrl('')
-      setScraperError('')
     }
     setIsModalOpen(true)
   }
@@ -197,7 +131,6 @@ useEffect(() => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
     try {
       const campaignData = {
         title: name,
@@ -211,20 +144,10 @@ useEffect(() => {
       let campaignId = editingCampaign?.id
 
       if (editingCampaign) {
-        const { error: updateError } = await supabase
-          .from('campaigns')
-          .update(campaignData)
-          .eq('id', campaignId)
-        if (updateError) throw updateError
-        
+        await supabase.from('campaigns').update(campaignData).eq('id', campaignId)
         await supabase.from('campaign_options').delete().eq('campaign_id', campaignId)
       } else {
-        const { data, error: insertError } = await supabase
-          .from('campaigns')
-          .insert([campaignData])
-          .select()
-          .single()
-        if (insertError) throw insertError
+        const { data } = await supabase.from('campaigns').insert([campaignData]).select().single()
         campaignId = data.id
       }
 
@@ -240,12 +163,11 @@ useEffect(() => {
           label: o.label || null
         }))
 
-      const { error: optionsError } = await supabase
-        .from('campaign_options')
-        .insert(optionsToInsert)
-      if (optionsError) throw optionsError
+      if (optionsToInsert.length > 0) {
+        await supabase.from('campaign_options').insert(optionsToInsert)
+      }
 
-      alert("Lưu chiến dịch thành công!")
+      alert("Thành công!")
       setIsModalOpen(false)
       fetchCampaigns()
     } catch (error: any) {
@@ -256,7 +178,7 @@ useEffect(() => {
   }
 
   const handleDelete = async (campaign: any) => {
-    if (confirm(`Xóa chiến dịch "${campaign.title}"?`)) {
+    if (confirm(`Xóa "${campaign.title}"?`)) {
       await supabase.from('campaigns').delete().eq('id', campaign.id)
       fetchCampaigns()
     }
@@ -264,80 +186,48 @@ useEffect(() => {
 
   return (
     <div className="p-4 lg:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[#8B7CFF]">Quản lý chiến dịch</h1>
-          <p className="text-muted-foreground">Dữ liệu thật từ Supabase</p>
-        </div>
-        <Button onClick={() => openModal()} className="rounded-xl bg-[#8B7CFF] hover:bg-[#7A6BEB]">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-[#8B7CFF]">Quản lý chiến dịch</h1>
+        <Button onClick={() => openModal()} className="rounded-xl bg-[#8B7CFF]">
           <Plus className="h-4 w-4 mr-2" /> Tạo chiến dịch
         </Button>
       </div>
 
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Tìm kiếm tên album..." 
-              value={search} 
-              onChange={(e) => setSearch(e.target.value)} 
-              className="pl-10 rounded-xl" 
-            />
-          </div>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Chiến dịch</TableHead>
-                  <TableHead>Cửa hàng</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Ngày đóng</TableHead>
-                  <TableHead className="w-[100px]">Thao tác</TableHead>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Chiến dịch</TableHead>
+                <TableHead>Trạng thái</TableHead>
+                <TableHead className="w-[100px]">Thao tác</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dbCampaigns.map((campaign) => (
+                <TableRow key={campaign.id}>
+                  <TableCell className="font-bold">{campaign.title}</TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(campaign.status)}>{campaignStatusLabels[campaign.status]}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {/* SỬA NÚT XEM Ở ĐÂY: Dùng openModal để hiện dữ liệu */}
+                        <DropdownMenuItem onClick={() => openModal(campaign)}>
+                          <Eye className="h-4 w-4 mr-2" /> Xem / Sửa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDelete(campaign)} className="text-destructive">
+                          <Trash2 className="h-4 w-4 mr-2" /> Xóa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dbCampaigns.filter(c => c.title?.toLowerCase().includes(search.toLowerCase())).map((campaign) => (
-                  <TableRow key={campaign.id}>
-                    <TableCell>
-                      <div className="font-bold text-gray-800">{campaign.title}</div>
-                      <div className="text-xs text-muted-foreground">{campaign.campaign_options?.length || 0} phiên bản</div>
-                    </TableCell>
-                    <TableCell><Badge variant="outline">{campaign.store_name}</Badge></TableCell>
-                    <TableCell>
-                      <Badge className={`${getStatusColor(campaign.status)} border`}>
-                        {campaignStatusLabels[campaign.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatDate(campaign.close_date)}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/campaign?id=${campaign.id}`}><Eye className="h-4 w-4 mr-2" /> Xem</Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openModal(campaign)}>
-                            <Edit2 className="h-4 w-4 mr-2" /> Sửa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDelete(campaign)} className="text-destructive">
-                            <Trash2 className="h-4 w-4 mr-2" /> Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
@@ -345,63 +235,37 @@ useEffect(() => {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingCampaign ? 'Cập nhật' : 'Tạo mới'} chiến dịch</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!editingCampaign && (
-              <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-3">
-                <Label className="font-bold text-[#8B7CFF] flex items-center gap-2"><Link2 className="h-4 w-4" /> Phương án 1: Tự điền từ URL</Label>
-                <div className="flex gap-2">
-                  <Input value={scraperUrl} onChange={(e) => setScraperUrl(e.target.value)} placeholder="Dán link sản phẩm..." className="rounded-xl flex-1" />
-                  <Button type="button" variant="secondary" onClick={handleAutoFill} disabled={isScraperLoading}>
-                    {isScraperLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Quét'}
-                  </Button>
-                </div>
-                {scraperError && <p className="text-xs text-red-500">{scraperError}</p>}
-              </div>
-            )}
-
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 space-y-1">
-                <Label>Tên album *</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} required />
-              </div>
-              <div className="space-y-1">
-                <Label>Cửa hàng *</Label>
+              <div className="col-span-2"><Label>Tên album *</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
+              <div><Label>Cửa hàng *</Label>
                 <Select value={store} onValueChange={setStore} required>
                   <SelectTrigger><SelectValue placeholder="Chọn Store" /></SelectTrigger>
                   <SelectContent>{storeOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <Label>Ngày đóng</Label>
-                <Input type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label>URL Ảnh bìa</Label>
-                <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
-                {imageUrl && <img src={imageUrl} className="h-20 w-20 mt-2 rounded border object-cover" />}
-              </div>
+              <div><Label>Ngày đóng</Label><Input type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} /></div>
+              <div className="col-span-2"><Label>URL Ảnh bìa</Label><Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} /></div>
             </div>
 
             <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <Label className="font-bold">Các phiên bản & Giá</Label>
-                <Button type="button" variant="outline" size="sm" onClick={() => setOptions([...options, { ...emptyOption }])}>+ Thêm bản</Button>
-              </div>
+              <div className="flex justify-between items-center"><Label className="font-bold">Các phiên bản</Label>
+              <Button type="button" variant="outline" size="sm" onClick={() => setOptions([...options, { ...emptyOption }])}>+ Thêm</Button></div>
               {options.map((option, index) => (
                 <div key={index} className="grid grid-cols-12 gap-2 p-3 bg-gray-50 rounded-xl border">
-                  <Input placeholder="Bản A/B..." value={option.version} onChange={(e) => {
+                  <Input placeholder="Bản A/B..." className="col-span-4" value={option.version} onChange={(e) => {
                     const n = [...options]; n[index].version = e.target.value; setOptions(n);
-                  }} className="col-span-5" />
-                  <Input type="number" placeholder="Giá" value={option.price} onChange={(e) => {
+                  }} />
+                  <Input type="number" placeholder="Giá VND" className="col-span-4" value={option.price} onChange={(e) => {
                     const n = [...options]; n[index].price = e.target.value; setOptions(n);
-                  }} className="col-span-5" />
-                  <Button type="button" variant="ghost" className="col-span-2 text-red-500" onClick={() => setOptions(options.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
+                  }} />
+                  <Input type="number" placeholder="Tiền cọc" className="col-span-3" value={option.deposit} onChange={(e) => {
+                    const n = [...options]; n[index].deposit = e.target.value; setOptions(n);
+                  }} />
+                  <Button type="button" variant="ghost" className="col-span-1 text-red-500" onClick={() => setOptions(options.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               ))}
             </div>
-
-            <DialogFooter>
-              <Button type="submit" disabled={loading} className="w-full bg-[#8B7CFF]">{loading ? 'Đang lưu...' : 'Lưu chiến dịch'}</Button>
-            </DialogFooter>
+            <DialogFooter><Button type="submit" disabled={loading} className="w-full bg-[#8B7CFF]">{loading ? 'Đang lưu...' : 'Lưu chiến dịch'}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
