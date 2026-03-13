@@ -26,7 +26,7 @@ export default function HomePage() {
         {/* Banner Hero */}
         <section className="relative overflow-hidden rounded-[40px] bg-gradient-to-br from-[#8B7CFF] to-[#6366F1] p-8 md:p-12 text-white shadow-2xl">
           <div className="relative z-10 max-w-lg">
-            <Badge className="bg-white/20 text-white border-none rounded-lg mb-4">Ninh Order Hải Phòng</Badge>
+            <Badge className="bg-white/20 text-white border-none rounded-lg mb-4">Thạch Thảo</Badge>
             <h1 className="text-3xl md:text-5xl font-black mb-4 leading-tight italic uppercase">Đặt hàng Kpop<br/>Dễ dàng hơn</h1>
             <p className="text-white/80 font-medium">Săn album, goods giá gốc từ Hàn Quốc. Nhận hàng tại Hải Phòng nhanh chóng.</p>
           </div>
