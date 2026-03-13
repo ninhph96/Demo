@@ -212,7 +212,7 @@ export default function CampaignsPage() {
       .map(o => ({
         campaign_id: campaignId,
         version: o.version,
-        price_vnd: parseInt(o.price) || 0, // Đổi từ price sang price_vnd
+        price_vnd: parseInt(o.price_vnd) || 0, // Đổi từ price sang price_vnd
         benefit: o.benefit || null,
         label: o.label || null
       }))
