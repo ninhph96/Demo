@@ -405,3 +405,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     </div>
   )
 }
+export function generateStaticParams() {
+  return [];
+}
