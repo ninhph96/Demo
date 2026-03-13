@@ -1,18 +1,37 @@
 'use client'
 import { useSearchParams } from 'next/navigation'
-import { useState, Suspense } from 'react'
-import { CheckCircle2, Copy, MessageCircle, Home, QrCode } from 'lucide-react'
+import { useState, Suspense, useEffect } from 'react' // Thêm useEffect
+import { CheckCircle2, Copy, MessageCircle, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import Link from 'next/link'
+import { supabase } from '@/lib/supabase' // Thêm import supabase
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams()
   const orderCode = searchParams.get('code') || 'N/A'
   const total = searchParams.get('total') || '0'
   const customerName = searchParams.get('name') || 'Khách'
+  const bankId = searchParams.get('bankId') // Lấy bankId từ URL
+  
   const [copied, setCopied] = useState(false)
+  const [bankInfo, setBankInfo] = useState<any>(null) // State lưu thông tin ngân hàng
 
-  // Nội dung chuyển khoản : [Tên khách] [Mã_Đơn]
+  // 1. Logic lấy thông tin ngân hàng cụ thể từ Supabase
+  useEffect(() => {
+    if (bankId) {
+      const fetchBank = async () => {
+        const { data } = await supabase
+          .from('bank_accounts')
+          .select('*')
+          .eq('id', bankId)
+          .single()
+        if (data) setBankInfo(data)
+      }
+      fetchBank()
+    }
+  }, [bankId])
+
   const transferContent = `${customerName.toUpperCase()} ${orderCode}`
 
   const copyContent = () => {
@@ -40,20 +59,31 @@ function OrderSuccessContent() {
         </div>
         
         <CardContent className="p-6 space-y-6 bg-white">
-          {/* Khu vực hiện mã QR từ folder Bank */}
+          {/* 2. Khu vực hiện mã QR ĐỘNG theo ngân hàng khách chọn */}
           <div className="bg-gray-50 rounded-2xl p-4 text-center border-2 border-dashed">
-            <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">Quét mã QR để thanh toán</p>
+            <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase italic">
+              Quét mã QR {bankInfo?.bank_name || ''} để thanh toán
+            </p>
+            
             <img 
-              src="https://pojaafndtkxbhityeqmt.supabase.co/storage/v1/object/public/images/Bank/qr-thanh-toan.png" 
+              src={bankInfo?.qr_url || 'https://placehold.co/200x200?text=DANG+TAI+QR'} 
               alt="QR Bank"
-              className="mx-auto w-48 rounded-lg shadow-sm"
-              onError={(e) => { (e.target as any).src = "https://placehold.co/200x200?text=QR+BANK"; }}
+              className="mx-auto w-48 rounded-lg shadow-sm bg-white p-2"
+              onError={(e) => { (e.target as any).src = "https://placehold.co/200x200?text=LỖI+QR"; }}
             />
+            
+            {bankInfo && (
+              <div className="mt-3 text-center">
+                <p className="font-black text-[#8B7CFF] uppercase">{bankInfo.bank_name}</p>
+                <p className="text-sm font-bold text-gray-600">{bankInfo.account_number}</p>
+                <p className="text-[10px] text-gray-400 uppercase">{bankInfo.account_holder}</p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-400">NỘI DUNG CHUYỂN KHOẢN</span>
+              <span className="text-xs text-gray-400 uppercase font-bold">Nội dung chuyển khoản</span>
               <Button variant="ghost" size="sm" onClick={copyContent} className="text-[#8B7CFF] h-6">
                 <Copy className="h-3 w-3 mr-1" /> Copy
               </Button>
@@ -61,17 +91,17 @@ function OrderSuccessContent() {
             <div className="bg-[#F7F6FF] p-4 rounded-xl text-center font-black text-[#8B7CFF] text-lg border border-[#8B7CFF]/20">
               {transferContent}
             </div>
-            {copied && <p className="text-center text-[10px] text-emerald-600">Đã copy nội dung!</p>}
+            {copied && <p className="text-center text-[10px] text-emerald-600">Đã sao chép nội dung!</p>}
           </div>
 
           <Button className="w-full rounded-2xl h-12 bg-[#0084FF] hover:bg-[#0073E6]" asChild>
-            <a href="https://m.me/DLThachThao" target="_blank">
+            <a href="https://m.me/DLThachThao" target="_blank" rel="noreferrer">
               <MessageCircle className="h-5 w-5 mr-2" /> Nhắn bill cho Mình
             </a>
           </Button>
 
-          <Link href="/">
-            <Button variant="outline" className="w-full rounded-2xl mt-2">
+          <Link href="/" className="block">
+            <Button variant="outline" className="w-full rounded-2xl">
               <Home className="h-4 w-4 mr-2" /> Về trang chủ
             </Button>
           </Link>
