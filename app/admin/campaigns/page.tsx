@@ -178,29 +178,26 @@ export default function CampaignsPage() {
 
     try {
       const campaignData = {
-        name,
-        store,
-        image_url: imageUrl,
-        status,
-        close_date: closeDate || null,
-        description
+        name: name, // Đảm bảo biến 'name' không rỗng
+        store: store,
+        image_url: imageUrl, 
+        status: status,
+        // LOGIC MỚI: Nếu closeDate trống thì gửi null, không bắt buộc nhập
+        close_date: closeDate ? closeDate : null, 
+        description: description
       }
 
       let campaignId = editingCampaign?.id
 
       if (editingCampaign) {
-        // Cập nhật Campaign
         await supabase.from('campaigns').update(campaignData).eq('id', campaignId)
-        // Xóa options cũ để chèn lại cho sạch
         await supabase.from('campaign_options').delete().eq('campaign_id', campaignId)
       } else {
-        // Tạo Campaign mới
         const { data, error } = await supabase.from('campaigns').insert([campaignData]).select().single()
         if (error) throw error
         campaignId = data.id
       }
 
-      // Chèn các Options
       const optionsToInsert = options
         .filter(o => o.version && o.price)
         .map(o => ({
@@ -213,10 +210,11 @@ export default function CampaignsPage() {
 
       await supabase.from('campaign_options').insert(optionsToInsert)
 
-      alert("Lưu chiến dịch thành công!")
+      alert("Đăng chiến dịch thành công rồi nhé Ninh!")
       setIsModalOpen(false)
-      fetchCampaigns()
+      fetchCampaigns() // Load lại danh sách
     } catch (error: any) {
+      // Nếu vẫn báo lỗi cột, Ninh hãy kiểm tra lại chính xác tên cột trong bảng campaigns nhé
       alert("Lỗi: " + error.message)
     } finally {
       setLoading(false)
