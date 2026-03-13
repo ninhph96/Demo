@@ -9,7 +9,6 @@ const nextConfig = {
   // Uncomment below for GitHub Pages deployment
   output: 'export',
   basePath: '/Demo',
-  assetPrefix: '/Demo/',
 }
 
 export default nextConfig
