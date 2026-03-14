@@ -11,7 +11,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-import { AuthProvider, useAuth } from '@/lib/auth-context'
 import { AdminLogin } from '@/components/admin-login'
 import { supabase } from '@/lib/supabase'
 
