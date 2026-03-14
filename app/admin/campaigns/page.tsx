@@ -69,7 +69,7 @@ export default function CampaignsPage() {
   const [imageUrl, setImageUrl] = useState('')
   const [status, setStatus] = useState<CampaignStatus>('DRAFT')
   const [closeDate, setCloseDate] = useState('')
-  const [depositPercent, setDepositPercent] = useState(50) // Mặc định 50%
+  const [depositPercent, setDepositPercent] = useState(50) 
   const [options, setOptions] = useState<OptionForm[]>([{ ...emptyOption }])
 
   const fetchCampaigns = async () => {
@@ -82,11 +82,10 @@ export default function CampaignsPage() {
 
   useEffect(() => { fetchCampaigns() }, [])
 
-  // Hàm tự động tính tiền cọc khi nhập giá hoặc đổi %
   const calculateDeposit = (price: string, percent: number) => {
-  const p = parseInt(price) || 0;
-  return Math.round((p * percent) / 100).toString();
-};
+    const p = parseInt(price) || 0;
+    return Math.round((p * percent) / 100).toString();
+  };
 
   const openModal = (campaign?: any) => {
     if (campaign) {
@@ -121,7 +120,7 @@ export default function CampaignsPage() {
         store_name: store,
         image_url: imageUrl, 
         status: status,
-        deposit_percent: depositPercent, // Lưu % cọc vào CSDL
+        deposit_percent: depositPercent,
         close_date: closeDate ? closeDate : null 
       }
 
@@ -211,20 +210,41 @@ export default function CampaignsPage() {
                 </Select>
               </div>
 
-              {/* LỰA CHỌN % CỌC NHƯ NINH YÊU CẦU */}
-              <div className="space-y-2"><Label className="text-[10px] font-black uppercase ml-1 text-[#8B7CFF]">Mức tiền cọc (%)</Label>
-                <Select value={depositPercent.toString()} onValueChange={(v) => {
-                  const p = parseInt(v); setDepositPercent(p);
-                  // Cập nhật lại toàn bộ tiền cọc khi đổi %
-                  const updated = options.map(o => ({ ...o, deposit: calculateDeposit(o.price, p) }));
-                  setOptions(updated);
-                }}>
-                  <SelectTrigger className="rounded-2xl bg-[#8B7CFF]/10 border-none h-12 font-black text-[#8B7CFF]"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-xl border-none shadow-xl">
-                    <SelectItem value="50">Cọc 50%</SelectItem>
-                    <SelectItem value="70">Cọc 70%</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* PHẦN CHỌN % CỌC MỚI CỦA Ở ĐÂY */}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase ml-1 text-[#8B7CFF]">Mức tiền cọc (%)</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDepositPercent(50);
+                      const updated = options.map(o => ({ ...o, deposit: calculateDeposit(o.price, 50) }));
+                      setOptions(updated);
+                    }}
+                    className={`h-12 rounded-2xl font-black italic transition-all border-2 ${
+                      depositPercent === 50 
+                      ? 'bg-[#8B7CFF] border-[#8B7CFF] text-white shadow-md scale-105' 
+                      : 'bg-white border-gray-100 text-gray-400'
+                    }`}
+                  >
+                    50%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDepositPercent(70);
+                      const updated = options.map(o => ({ ...o, deposit: calculateDeposit(o.price, 70) }));
+                      setOptions(updated);
+                    }}
+                    className={`h-12 rounded-2xl font-black italic transition-all border-2 ${
+                      depositPercent === 70 
+                      ? 'bg-[#8B7CFF] border-[#8B7CFF] text-white shadow-md scale-105' 
+                      : 'bg-white border-gray-100 text-gray-400'
+                    }`}
+                  >
+                    70%
+                  </button>
+                </div>
               </div>
 
               <div className="col-span-2 space-y-2"><Label className="text-[10px] font-black uppercase ml-1">URL Ảnh bìa</Label><Input className="rounded-2xl bg-gray-50 border-none h-12" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} /></div>
@@ -235,56 +255,31 @@ export default function CampaignsPage() {
               <Button type="button" variant="outline" size="sm" className="rounded-xl border-[#8B7CFF] text-[#8B7CFF] font-bold" onClick={() => setOptions([...options, { ...emptyOption }])}>+ Thêm bản</Button></div>
               
               {options.map((option, index) => (
-  <div key={index} className="grid grid-cols-12 gap-3 p-4 bg-gray-50 rounded-[28px] border border-gray-100 relative group items-end">
-    {/* 1. Tên phiên bản */}
-    <div className="col-span-5 space-y-1">
-      <Label className="text-[9px] uppercase font-bold text-gray-400 ml-1">Phiên bản</Label>
-      <Input 
-        placeholder="Bản A, B..." 
-        className="rounded-xl border-none h-11 font-bold shadow-sm" 
-        value={option.version} 
-        onChange={(e) => {
-          const n = [...options]; n[index].version = e.target.value; setOptions(n);
-        }} 
-      />
-    </div>
-
-    {/* 2. Giá VND (Nhập vào đây) */}
-    <div className="col-span-4 space-y-1">
-      <Label className="text-[9px] uppercase font-bold text-gray-400 ml-1">Giá bán (VND)</Label>
-      <Input 
-        type="number" 
-        className="rounded-xl border-none h-11 font-black text-[#8B7CFF] shadow-sm" 
-        value={option.price} 
-        onChange={(e) => {
-          const n = [...options]; 
-          n[index].price = e.target.value;
-          // TỰ ĐỘNG TÍNH TIỀN CỌC THEO % ĐÃ CHỌN Ở TRÊN
-          n[index].deposit = calculateDeposit(e.target.value, depositPercent); 
-          setOptions(n);
-        }} 
-      />
-    </div>
-
-    {/* 3. Hiển thị số tiền cọc (Chỉ hiển thị, không cho nhập tay) */}
-    <div className="col-span-3 space-y-1 text-right">
-      <Label className="text-[9px] uppercase font-black text-[#8B7CFF] mr-1 italic">Cọc ({depositPercent}%)</Label>
-      <div className="h-11 flex items-center justify-end pr-2 font-black text-[#8B7CFF] text-lg italic">
-        {new Intl.NumberFormat('vi-VN').format(parseInt(option.deposit) || 0)}
-      </div>
-    </div>
-
-    {/* Nút xóa bản */}
-    <Button 
-      type="button" 
-      variant="ghost" 
-      className="absolute -right-2 -top-2 bg-white shadow-md rounded-full h-8 w-8 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" 
-      onClick={() => setOptions(options.filter((_, i) => i !== index))}
-    >
-      <Trash2 className="h-4 w-4" />
-    </Button>
-  </div>
-))}
+                <div key={index} className="grid grid-cols-12 gap-3 p-4 bg-gray-50 rounded-[28px] border border-gray-100 relative group items-end">
+                  <div className="col-span-5 space-y-1">
+                    <Label className="text-[9px] uppercase font-bold text-gray-400 ml-1">Phiên bản</Label>
+                    <Input placeholder="Bản A, B..." className="rounded-xl border-none h-11 font-bold shadow-sm" value={option.version} onChange={(e) => {
+                      const n = [...options]; n[index].version = e.target.value; setOptions(n);
+                    }} />
+                  </div>
+                  <div className="col-span-4 space-y-1">
+                    <Label className="text-[9px] uppercase font-bold text-gray-400 ml-1">Giá bán (VND)</Label>
+                    <Input type="number" className="rounded-xl border-none h-11 font-black text-[#8B7CFF] shadow-sm" value={option.price} onChange={(e) => {
+                      const n = [...options]; 
+                      n[index].price = e.target.value;
+                      n[index].deposit = calculateDeposit(e.target.value, depositPercent); 
+                      setOptions(n);
+                    }} />
+                  </div>
+                  <div className="col-span-3 space-y-1 text-right">
+                    <Label className="text-[9px] uppercase font-black text-[#8B7CFF] mr-1 italic">Cọc ({depositPercent}%)</Label>
+                    <div className="h-11 flex items-center justify-end pr-2 font-black text-[#8B7CFF] text-lg italic">
+                      {new Intl.NumberFormat('vi-VN').format(parseInt(option.deposit) || 0)}
+                    </div>
+                  </div>
+                  <Button type="button" variant="ghost" className="absolute -right-2 -top-2 bg-white shadow-md rounded-full h-8 w-8 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setOptions(options.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
+                </div>
+              ))}
             </div>
 
             <DialogFooter className="pt-4">
