@@ -54,7 +54,7 @@ function CheckoutContent() {
 
   const handleOrder = async () => {
     if (!formData.name || !formData.phone || !formData.address) {
-      alert("Ninh nhắc khách điền đủ thông tin để nhận hàng nhé!");
+      alert("Điền đủ thông tin để nhận hàng nhé!");
       return;
     }
 
