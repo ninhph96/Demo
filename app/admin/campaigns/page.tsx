@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit2, Trash2, Eye, MoreVertical, Link2, Loader2 } from 'lucide-react'
+import { Plus, MoreVertical, Eye, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -35,15 +35,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { campaignStatusLabels, storeOptions } from '@/lib/types'
 import type { CampaignStatus } from '@/lib/types'
 import { supabase } from '@/lib/supabase'
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return 'Chưa đặt'
-  return new Date(dateStr).toLocaleDateString('vi-VN')
-}
 
 function getStatusColor(status: CampaignStatus): string {
   switch (status) {
@@ -59,16 +53,13 @@ interface OptionForm {
   id?: string
   version: string
   price: string
-  deposit: string // Thêm trường deposit cho form
-  benefit: string
-  label: string
+  deposit: string 
 }
 
-const emptyOption: OptionForm = { version: '', price: '', deposit: '', benefit: '', label: '' }
+const emptyOption: OptionForm = { version: '', price: '', deposit: '' }
 
 export default function CampaignsPage() {
   const [dbCampaigns, setDbCampaigns] = useState<any[]>([])
-  const [search, setSearch] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCampaign, setEditingCampaign] = useState<any | null>(null)
   const [loading, setLoading] = useState(false)
@@ -78,15 +69,11 @@ export default function CampaignsPage() {
   const [imageUrl, setImageUrl] = useState('')
   const [status, setStatus] = useState<CampaignStatus>('DRAFT')
   const [closeDate, setCloseDate] = useState('')
-  const [description, setDescription] = useState('')
+  const [depositPercent, setDepositPercent] = useState(50) // Mặc định 50%
   const [options, setOptions] = useState<OptionForm[]>([{ ...emptyOption }])
-  
-  const [scraperUrl, setScraperUrl] = useState('')
-  const [isScraperLoading, setIsScraperLoading] = useState(false)
-  const [scraperError, setScraperError] = useState('')
 
   const fetchCampaigns = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('campaigns')
       .select('*, campaign_options(*)')
       .order('created_at', { ascending: false })
@@ -94,6 +81,12 @@ export default function CampaignsPage() {
   }
 
   useEffect(() => { fetchCampaigns() }, [])
+
+  // Hàm tự động tính tiền cọc khi nhập giá hoặc đổi %
+  const calculateDeposit = (price: string, percent: number) => {
+    const p = parseInt(price) || 0
+    return Math.round((p * percent) / 100).toString()
+  }
 
   const openModal = (campaign?: any) => {
     if (campaign) {
@@ -103,27 +96,18 @@ export default function CampaignsPage() {
       setImageUrl(campaign.image_url || '')
       setStatus(campaign.status || 'DRAFT')
       setCloseDate(campaign.close_date || '')
-      setDescription(campaign.description || '')
+      setDepositPercent(campaign.deposit_percent || 50)
       setOptions(campaign.campaign_options?.length > 0 
         ? campaign.campaign_options.map((o: any) => ({
             id: o.id,
             version: o.version || '',
             price: o.price_vnd?.toString() || '0',
             deposit: o.deposit_amount?.toString() || '0',
-            benefit: o.benefit || '',
-            label: o.label || ''
           }))
         : [{ ...emptyOption }]
       )
     } else {
-      setEditingCampaign(null)
-      setName('')
-      setStore('')
-      setImageUrl('')
-      setStatus('OPEN')
-      setCloseDate('')
-      setDescription('')
-      setOptions([{ ...emptyOption }])
+      setEditingCampaign(null); setName(''); setStore(''); setImageUrl(''); setStatus('OPEN'); setCloseDate(''); setDepositPercent(50); setOptions([{ ...emptyOption }])
     }
     setIsModalOpen(true)
   }
@@ -137,12 +121,11 @@ export default function CampaignsPage() {
         store_name: store,
         image_url: imageUrl, 
         status: status,
-        description: description,
+        deposit_percent: depositPercent, // Lưu % cọc vào CSDL
         close_date: closeDate ? closeDate : null 
       }
 
       let campaignId = editingCampaign?.id
-
       if (editingCampaign) {
         await supabase.from('campaigns').update(campaignData).eq('id', campaignId)
         await supabase.from('campaign_options').delete().eq('campaign_id', campaignId)
@@ -156,116 +139,134 @@ export default function CampaignsPage() {
         .map(o => ({
           campaign_id: campaignId,
           version: o.version,
-          name: o.version,
           price_vnd: parseInt(o.price) || 0,
           deposit_amount: parseInt(o.deposit) || 0,
-          benefit: o.benefit || null,
-          label: o.label || null
         }))
 
       if (optionsToInsert.length > 0) {
         await supabase.from('campaign_options').insert(optionsToInsert)
       }
 
-      alert("Thành công!")
       setIsModalOpen(false)
       fetchCampaigns()
-    } catch (error: any) {
-      alert("Lỗi: " + error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDelete = async (campaign: any) => {
-    if (confirm(`Xóa "${campaign.title}"?`)) {
-      await supabase.from('campaigns').delete().eq('id', campaign.id)
-      fetchCampaigns()
-    }
+      alert("Đã lưu chiến dịch!")
+    } catch (error: any) { alert(error.message) } finally { setLoading(false) }
   }
 
   return (
     <div className="p-4 lg:p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-[#8B7CFF]">Quản lý chiến dịch</h1>
-        <Button onClick={() => openModal()} className="rounded-xl bg-[#8B7CFF]">
-          <Plus className="h-4 w-4 mr-2" /> Tạo chiến dịch
+        <h1 className="text-2xl font-black italic uppercase text-[#8B7CFF]">Quản lý chiến dịch</h1>
+        <Button onClick={() => openModal()} className="rounded-2xl bg-[#8B7CFF] hover:bg-[#7A6BEB] shadow-lg shadow-purple-100 uppercase italic font-bold">
+          <Plus className="h-4 w-4 mr-2" /> Tạo mới
         </Button>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Chiến dịch</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                <TableHead className="w-[100px]">Thao tác</TableHead>
+      <Card className="rounded-[32px] border-none shadow-sm overflow-hidden bg-white">
+        <Table>
+          <TableHeader className="bg-gray-50">
+            <TableRow>
+              <TableHead className="font-bold uppercase text-[10px]">Album</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">Cọc %</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">Trạng thái</TableHead>
+              <TableHead className="w-[80px]"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {dbCampaigns.map((campaign) => (
+              <TableRow key={campaign.id} className="hover:bg-gray-50/50">
+                <TableCell className="font-bold text-gray-700">{campaign.title}</TableCell>
+                <TableCell className="font-black text-[#8B7CFF] italic">{campaign.deposit_percent}%</TableCell>
+                <TableCell>
+                  <Badge className={`rounded-lg border-none ${getStatusColor(campaign.status)}`}>
+                    {campaignStatusLabels[campaign.status]}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="rounded-xl border-none shadow-xl">
+                      <DropdownMenuItem onClick={() => openModal(campaign)}><Eye className="h-4 w-4 mr-2" /> Sửa</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { if(confirm('Xóa?')) supabase.from('campaigns').delete().eq('id', campaign.id).then(fetchCampaigns) }} className="text-red-500"><Trash2 className="h-4 w-4 mr-2" /> Xóa</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {dbCampaigns.map((campaign) => (
-                <TableRow key={campaign.id}>
-                  <TableCell className="font-bold">{campaign.title}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(campaign.status)}>{campaignStatusLabels[campaign.status]}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {/* SỬA NÚT XEM Ở ĐÂY: Dùng openModal để hiện dữ liệu */}
-                        <DropdownMenuItem onClick={() => openModal(campaign)}>
-                          <Eye className="h-4 w-4 mr-2" /> Xem / Sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(campaign)} className="text-destructive">
-                          <Trash2 className="h-4 w-4 mr-2" /> Xóa
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
+            ))}
+          </TableBody>
+        </Table>
       </Card>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingCampaign ? 'Cập nhật' : 'Tạo mới'} chiến dịch</DialogTitle></DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-[40px] border-none">
+          <DialogHeader><DialogTitle className="text-2xl font-black italic uppercase text-gray-800">{editingCampaign ? 'Cập nhật' : 'Tạo mới'} album</DialogTitle></DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-6 pt-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2"><Label>Tên album *</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
-              <div><Label>Cửa hàng *</Label>
+              <div className="col-span-2 space-y-2"><Label className="text-[10px] font-black uppercase ml-1">Tên album *</Label><Input className="rounded-2xl bg-gray-50 border-none h-12 font-bold" value={name} onChange={(e) => setName(e.target.value)} required /></div>
+              
+              <div className="space-y-2"><Label className="text-[10px] font-black uppercase ml-1">Store *</Label>
                 <Select value={store} onValueChange={setStore} required>
-                  <SelectTrigger><SelectValue placeholder="Chọn Store" /></SelectTrigger>
-                  <SelectContent>{storeOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  <SelectTrigger className="rounded-2xl bg-gray-50 border-none h-12 font-bold"><SelectValue placeholder="Chọn" /></SelectTrigger>
+                  <SelectContent className="rounded-xl border-none shadow-xl">{storeOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Ngày đóng</Label><Input type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} /></div>
-              <div className="col-span-2"><Label>URL Ảnh bìa</Label><Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} /></div>
+
+              {/* LỰA CHỌN % CỌC NHƯ NINH YÊU CẦU */}
+              <div className="space-y-2"><Label className="text-[10px] font-black uppercase ml-1 text-[#8B7CFF]">Mức tiền cọc (%)</Label>
+                <Select value={depositPercent.toString()} onValueChange={(v) => {
+                  const p = parseInt(v); setDepositPercent(p);
+                  // Cập nhật lại toàn bộ tiền cọc khi đổi %
+                  const updated = options.map(o => ({ ...o, deposit: calculateDeposit(o.price, p) }));
+                  setOptions(updated);
+                }}>
+                  <SelectTrigger className="rounded-2xl bg-[#8B7CFF]/10 border-none h-12 font-black text-[#8B7CFF]"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-xl border-none shadow-xl">
+                    <SelectItem value="50">Cọc 50%</SelectItem>
+                    <SelectItem value="70">Cọc 70%</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="col-span-2 space-y-2"><Label className="text-[10px] font-black uppercase ml-1">URL Ảnh bìa</Label><Input className="rounded-2xl bg-gray-50 border-none h-12" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} /></div>
             </div>
 
             <div className="space-y-3">
-              <div className="flex justify-between items-center"><Label className="font-bold">Các phiên bản</Label>
-              <Button type="button" variant="outline" size="sm" onClick={() => setOptions([...options, { ...emptyOption }])}>+ Thêm</Button></div>
+              <div className="flex justify-between items-center"><Label className="font-black italic uppercase text-gray-400 text-[11px]">Các phiên bản & Giá</Label>
+              <Button type="button" variant="outline" size="sm" className="rounded-xl border-[#8B7CFF] text-[#8B7CFF] font-bold" onClick={() => setOptions([...options, { ...emptyOption }])}>+ Thêm bản</Button></div>
+              
               {options.map((option, index) => (
-                <div key={index} className="grid grid-cols-12 gap-2 p-3 bg-gray-50 rounded-xl border">
-                  <Input placeholder="Bản A/B..." className="col-span-4" value={option.version} onChange={(e) => {
-                    const n = [...options]; n[index].version = e.target.value; setOptions(n);
-                  }} />
-                  <Input type="number" placeholder="Giá VND" className="col-span-4" value={option.price} onChange={(e) => {
-                    const n = [...options]; n[index].price = e.target.value; setOptions(n);
-                  }} />
-                  <Input type="number" placeholder="Tiền cọc" className="col-span-3" value={option.deposit} onChange={(e) => {
-                    const n = [...options]; n[index].deposit = e.target.value; setOptions(n);
-                  }} />
-                  <Button type="button" variant="ghost" className="col-span-1 text-red-500" onClick={() => setOptions(options.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
+                <div key={index} className="grid grid-cols-12 gap-2 p-4 bg-gray-50 rounded-[28px] border border-gray-100 relative group">
+                  <div className="col-span-5 space-y-1">
+                    <Label className="text-[9px] uppercase font-bold text-gray-400 ml-1">Tên bản</Label>
+                    <Input placeholder="Bản A/B..." className="rounded-xl border-none h-10 font-bold shadow-sm" value={option.version} onChange={(e) => {
+                      const n = [...options]; n[index].version = e.target.value; setOptions(n);
+                    }} />
+                  </div>
+                  <div className="col-span-4 space-y-1">
+                    <Label className="text-[9px] uppercase font-bold text-gray-400 ml-1">Giá VND</Label>
+                    <Input type="number" className="rounded-xl border-none h-10 font-bold shadow-sm text-[#8B7CFF]" value={option.price} onChange={(e) => {
+                      const n = [...options]; 
+                      n[index].price = e.target.value;
+                      n[index].deposit = calculateDeposit(e.target.value, depositPercent); // Tự tính cọc
+                      setOptions(n);
+                    }} />
+                  </div>
+                  <div className="col-span-3 space-y-1">
+                    <Label className="text-[9px] uppercase font-bold text-[#8B7CFF] ml-1">Tiền cọc</Label>
+                    <Input type="number" className="rounded-xl bg-white border-2 border-[#8B7CFF]/20 h-10 font-black text-[#8B7CFF]" value={option.deposit} onChange={(e) => {
+                      const n = [...options]; n[index].deposit = e.target.value; setOptions(n);
+                    }} />
+                  </div>
+                  <Button type="button" variant="ghost" className="absolute -right-2 -top-2 bg-white shadow-md rounded-full h-8 w-8 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setOptions(options.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               ))}
             </div>
-            <DialogFooter><Button type="submit" disabled={loading} className="w-full bg-[#8B7CFF]">{loading ? 'Đang lưu...' : 'Lưu chiến dịch'}</Button></DialogFooter>
+
+            <DialogFooter className="pt-4">
+              <Button type="submit" disabled={loading} className="w-full h-16 rounded-[28px] bg-[#8B7CFF] hover:bg-[#6366F1] shadow-xl shadow-purple-100 text-lg font-black italic uppercase">
+                {loading ? <Loader2 className="animate-spin mr-2" /> : 'Lưu chiến dịch'}
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
