@@ -1,118 +1,106 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Search, Sparkles, Loader2 } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Header } from '@/components/header'
-import { BottomNav } from '@/components/bottom-nav'
-import { CampaignCard } from '@/components/campaign-card'
+import { useEffect, useState, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { CampaignStatus } from '@/lib/types'
-import { storeOptions, campaignStatusLabels } from '@/lib/types'
+import { CampaignCard } from '@/components/campaign-card'
+import { Header } from '@/components/header'
+import { Badge } from '@/components/ui/badge'
+import { Sparkles, Facebook } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
-export default function ExplorePage() {
-  const [campaigns, setCampaigns] = useState<any[]>([])
+function CampaignsContent() {
+  const [campaigns, setCampaigns] = useState([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<CampaignStatus | 'ALL'>('ALL')
-  const [storeFilter, setStoreFilter] = useState<string>('ALL')
+  const [settings, setSettings] = useState<any>(null) // Khai báo settings để fix lỗi undefined
 
   useEffect(() => {
-    const fetchCampaigns = async () => {
+    const fetchData = async () => {
       setLoading(true)
-      const { data } = await supabase
+      
+      // 1. Lấy cấu hình (Tránh lỗi ReferenceError)
+      const { data: settingsData } = await supabase
+        .from('site_settings')
+        .select('*')
+        .single()
+      if (settingsData) setSettings(settingsData)
+
+      // 2. Lấy danh sách chiến dịch
+      const { data: campaignsData } = await supabase
         .from('campaigns')
         .select('*, campaign_options(*)')
-        .neq('status', 'DRAFT')
-      if (data) setCampaigns(data)
+        .eq('status', 'OPEN')
+        .order('created_at', { ascending: false })
+      if (campaignsData) setCampaigns(campaignsData)
+      
       setLoading(false)
     }
-    fetchCampaigns()
+    fetchData()
   }, [])
 
-  const filteredCampaigns = campaigns.filter(c => {
-    // Search filter (Database dùng 'title')
-    if (search && !c.title?.toLowerCase().includes(search.toLowerCase())) return false
-    // Status filter
-    if (statusFilter !== 'ALL' && c.status !== statusFilter) return false
-    // Store filter (Database dùng 'store_name')
-    if (storeFilter !== 'ALL' && c.store_name !== storeFilter) return false
-    return true
-  })
-
   return (
-    <div className="min-h-screen bg-[#F8F9FD] pb-20 md:pb-8">
-      <Header />
-      <main className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-black text-gray-800 uppercase italic">Khám phá</h1>
-          <p className="text-gray-500 font-medium">Tìm album Kpop yêu thích tại đây</p>
-        </div>
+    <div className="min-h-screen bg-[#F8F9FD]">
+      {/* Header dùng settings động */}
+      <Header settings={settings} /> 
 
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8B7CFF]" />
-            <Input
-              placeholder="Nhập tên album cần tìm..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 rounded-2xl bg-white border-none shadow-sm h-12"
-            />
+      <main className="container mx-auto px-4 py-8 space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-gray-800 italic uppercase leading-none">Tất cả chiến dịch</h2>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Săn deal Kpop cùng Thạch Thảo</p>
           </div>
-          
-          <div className="flex gap-2">
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as CampaignStatus | 'ALL')}>
-              <SelectTrigger className="w-[140px] rounded-2xl bg-white border-none shadow-sm h-12">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Tất cả</SelectItem>
-                <SelectItem value="OPEN">Đang mở</SelectItem>
-                <SelectItem value="CLOSING_SOON">Sắp đóng</SelectItem>
-                <SelectItem value="CLOSED">Đã đóng</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={storeFilter} onValueChange={setStoreFilter}>
-              <SelectTrigger className="w-[140px] rounded-2xl bg-white border-none shadow-sm h-12">
-                <SelectValue placeholder="Cửa hàng" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Tất cả</SelectItem>
-                {storeOptions.map((store) => (
-                  <SelectItem key={store} value={store}>{store}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Badge className="bg-[#8B7CFF] text-white border-none rounded-lg font-black">
+            {campaigns.length} ĐANG MỞ
+          </Badge>
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#8B7CFF]" /></div>
-        ) : filteredCampaigns.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCampaigns.map((campaign) => (
-              <CampaignCard key={campaign.id} campaign={campaign} />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 animate-pulse">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="aspect-[3/4] bg-gray-200 rounded-[32px]" />
+            ))}
+          </div>
+        ) : campaigns.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+            {campaigns.map((c: any) => (
+              <CampaignCard key={c.id} campaign={c} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 bg-white rounded-[32px] shadow-sm">
-            <Sparkles className="h-12 w-12 text-gray-100 mx-auto mb-4" />
-            <h3 className="font-bold text-gray-400">Không tìm thấy kết quả</h3>
-            <Button variant="link" onClick={() => {setSearch(''); setStatusFilter('ALL'); setStoreFilter('ALL')}} className="text-[#8B7CFF]">Xóa bộ lọc</Button>
+          <div className="text-center py-20 bg-white rounded-[40px] border-2 border-dashed border-gray-100">
+            <Sparkles className="h-12 w-12 text-gray-200 mx-auto mb-4" />
+            <p className="text-gray-400 font-bold uppercase italic">Hiện chưa có chiến dịch nào</p>
           </div>
         )}
+
+        {/* Góc Facebook cho uy tín như Ninh yêu cầu */}
+        <div className="bg-white rounded-[35px] p-6 shadow-sm border border-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 mt-10">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-full bg-[#0084FF] flex items-center justify-center text-white shadow-md">
+              <Facebook className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="font-black text-[11px] text-gray-800 uppercase italic leading-none">Thạch Thảo Order Kpop</p>
+              <p className="text-[10px] text-gray-400 font-medium mt-1">Ghé thăm Fanpage để xem Feedback</p>
+            </div>
+          </div>
+          <Button variant="outline" className="rounded-full border-[#0084FF] text-[#0084FF] font-black text-[10px] h-9 px-6" asChild>
+            <a href="https://www.facebook.com/fangirlsdiaryshop" target="_blank">TRUY CẬP PAGE</a>
+          </Button>
+        </div>
       </main>
-      <BottomNav />
+
+      <footer className="py-10 text-center text-gray-300 text-[10px] font-bold uppercase tracking-[0.2em]">
+        {settings?.footer_text || '© 2026 THẠCH THẢO ORDER'}
+      </footer>
     </div>
+  )
+}
+
+// Bọc Suspense để GitHub Actions build không bị lỗi
+export default function CampaignsPage() {
+  return (
+    <Suspense fallback={<div className="p-20 text-center font-black text-gray-200 animate-pulse">LOADING...</div>}>
+      <CampaignsContent />
+    </Suspense>
   )
 }
