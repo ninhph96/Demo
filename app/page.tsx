@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { CampaignCard } from '@/components/campaign-card'
 import { Header } from '@/components/header'
 import { Badge } from '@/components/ui/badge'
-import { Sparkles, Facebook } from 'lucide-react'
+import { Sparkles, Facebook, ShoppingBag, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function HomePage() {
