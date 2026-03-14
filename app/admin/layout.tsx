@@ -20,7 +20,6 @@ const navItems = [
   { href: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/admin/campaigns', icon: Megaphone, label: 'Chiến dịch' },
   { href: '/admin/orders', icon: ShoppingCart, label: 'Đơn hàng' },
-  { href: '/admin/banks', icon: Landmark, label: 'Ngân hàng' }, // MỤC MỚI
   { href: '/admin/settings', icon: Settings, label: 'Cấu hình Web' }, // MỤC MỚI
   { href: '/admin/group-purchase', icon: Package, label: 'Gom đơn' },
   { href: '/admin/warehouse', icon: Warehouse, label: 'Kho hàng' },
