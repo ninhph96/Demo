@@ -117,6 +117,29 @@ export default function HomePage() {
             {settings?.footer_text || '© 2026 Thạch Thảo'}
            </p>
         </div>
+        {/* Social Connect Box */}
+<section className="container mx-auto px-4 mb-10">
+  <div className="bg-white rounded-[40px] p-8 shadow-xl border-2 border-[#8B7CFF]/5 flex flex-col md:flex-row items-center justify-between gap-6">
+    <div className="flex items-center gap-4">
+      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-[#0084FF] to-[#00C6FF] flex items-center justify-center text-white shadow-lg">
+        <Facebook className="h-8 w-8" />
+      </div>
+      <div>
+        <h3 className="font-black italic uppercase text-gray-800">Thạch Thảo Order Kpop</h3>
+        <p className="text-sm text-gray-400 font-medium">Theo dõi Fanpage để cập nhật deal hời mỗi ngày!</p>
+      </div>
+    </div>
+    
+    <Button 
+      asChild
+      className="rounded-full bg-[#0084FF] hover:bg-[#0073E6] px-8 h-12 font-black italic shadow-lg shadow-blue-100"
+    >
+      <a href="https://www.facebook.com/fangirlsdiaryshop" target="_blank">
+        GHÉ THĂM FANPAGE
+      </a>
+    </Button>
+  </div>
+</section>
       </footer>
     </div>
   )
