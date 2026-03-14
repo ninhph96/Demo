@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { OrderProvider } from '@/lib/order-context'
+import { OrderProvider } from '@/lib/order-context'
 
 const inter = Inter({ subsets: ["latin", "vietnamese"], variable: "--font-inter" });
 
@@ -29,18 +30,13 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({children,}: Readonly<{children: React.ReactNode}>) {
   return (
     <html lang="vi">
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body>
         <OrderProvider>
           {children}
         </OrderProvider>
-        <Analytics />
       </body>
     </html>
   )
