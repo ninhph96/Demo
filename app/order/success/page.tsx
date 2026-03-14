@@ -54,7 +54,7 @@ function SuccessContent() {
                 {/* HIỂN THỊ FILE BANK.PNG TỪ THƯ MỤC PUBLIC */}
                 <div className="relative mx-auto w-64 h-64 bg-white rounded-3xl p-3 shadow-inner">
                    <img 
-                    src="/bank.png" 
+                    src="bank.png" 
                     alt="Mã QR Ngân hàng"
                     className="w-full h-full object-contain rounded-2xl"
                     onError={(e) => {
