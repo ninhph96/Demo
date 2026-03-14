@@ -3,7 +3,6 @@ import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { OrderProvider } from '@/lib/order-context'
-import { OrderProvider } from '@/lib/order-context'
 
 const inter = Inter({ subsets: ["latin", "vietnamese"], variable: "--font-inter" });
 
