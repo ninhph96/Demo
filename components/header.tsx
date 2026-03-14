@@ -26,7 +26,7 @@ export function Header() {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <img src="/Demo/logo.png" alt="Logo Ninh Order" className="h-10 w-10 rounded-xl object-contain" />
-          <span className="font-bold text-xl text-foreground">DEMO</span>
+          <span className="font-bold text-xl text-foreground">FANGIRL's-DIARY</span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -69,6 +69,19 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <div className="flex items-center gap-4">
+  <img src={settings?.logo_url} className="h-10 w-10 rounded-full" />
+  <div>
+    <h1 className="font-black italic uppercase text-gray-800 leading-none">{settings?.site_name}</h1>
+    <a 
+      href="https://www.facebook.com/fangirlsdiaryshop" 
+      target="_blank" 
+      className="text-[10px] text-[#0084FF] font-bold flex items-center gap-1 hover:underline"
+    >
+      fb.com/fangirlsdiaryshop
+    </a>
+  </div>
+</div>
     </header>
   )
 }
