@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Sparkles, Menu } from 'lucide-react'
+import { Menu, Facebook } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -18,15 +18,33 @@ const navLinks = [
   { href: '/track', label: 'Tra cứu đơn' }
 ]
 
-export function Header() {
+// Thêm { settings }: any để nhận dữ liệu từ trang chủ truyền vào
+export function Header({ settings }: any) {
   const pathname = usePathname()
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-sm shadow-sm">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <img src="/Demo/logo.png" alt="Logo Ninh Order" className="h-10 w-10 rounded-xl object-contain" />
-          <span className="font-bold text-xl text-foreground">FANGIRL's-DIARY</span>
+        
+        {/* Logo & Site Name */}
+        <Link href="/" className="flex items-center gap-3">
+          <img 
+            src={settings?.logo_url || "/Demo/logo.png"} 
+            alt="Logo" 
+            className="h-10 w-10 rounded-xl object-cover shadow-sm" 
+          />
+          <div className="flex flex-col">
+            <span className="font-black text-lg text-gray-800 leading-none uppercase italic tracking-tighter">
+              {settings?.site_name || "FANGIRL'S DIARY"}
+            </span>
+            <a 
+              href="https://www.facebook.com/fangirlsdiaryshop" 
+              target="_blank" 
+              className="text-[9px] text-[#0084FF] font-bold flex items-center gap-1 hover:underline mt-0.5"
+            >
+              fb.com/fangirlsdiaryshop
+            </a>
+          </div>
         </Link>
 
         {/* Desktop Navigation */}
@@ -40,10 +58,10 @@ export function Header() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "px-4 py-2 rounded-xl text-sm font-medium transition-colors",
+                  "px-4 py-2 rounded-xl text-sm font-bold uppercase italic transition-all",
                   isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-[#8B7CFF]/10 text-[#8B7CFF]"
+                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                 )}
               >
                 {link.label}
@@ -55,33 +73,24 @@ export function Header() {
         {/* Mobile Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild className="md:hidden">
-            <Button variant="ghost" size="icon">
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Menu</span>
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <Menu className="h-6 w-6 text-gray-600" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-xl border-none">
             {navLinks.map((link) => (
-              <DropdownMenuItem key={link.href} asChild>
-                <Link href={link.href}>{link.label}</Link>
+              <DropdownMenuItem key={link.href} asChild className="rounded-xl focus:bg-[#8B7CFF]/10 focus:text-[#8B7CFF]">
+                <Link href={link.href} className="font-bold py-3 uppercase italic text-xs">{link.label}</Link>
               </DropdownMenuItem>
             ))}
+            <DropdownMenuItem asChild className="mt-2 bg-blue-50 text-[#0084FF] rounded-xl">
+              <a href="https://www.facebook.com/fangirlsdiaryshop" target="_blank" className="flex items-center gap-2 font-black py-3 uppercase italic text-[10px]">
+                <Facebook className="h-4 w-4" /> Fanpage Facebook
+              </a>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="flex items-center gap-4">
-  <img src={settings?.logo_url} className="h-10 w-10 rounded-full" />
-  <div>
-    <h1 className="font-black italic uppercase text-gray-800 leading-none">{settings?.site_name}</h1>
-    <a 
-      href="https://www.facebook.com/fangirlsdiaryshop" 
-      target="_blank" 
-      className="text-[10px] text-[#0084FF] font-bold flex items-center gap-1 hover:underline"
-    >
-      fb.com/fangirlsdiaryshop
-    </a>
-  </div>
-</div>
     </header>
   )
 }
