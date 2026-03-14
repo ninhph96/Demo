@@ -35,14 +35,14 @@ export function CampaignCard({ campaign }: { campaign: any }) {
   const displayImage = campaign.image_url || logoUrl || 'https://placehold.co/400x400?text=Kpop+Order'
 
   const handlePayment = () => {
-    if (options.length > 0 && selectedOptions.length === 0) {
-      alert("Ninh nhắc khách chọn ít nhất 1 phiên bản nhé!")
-      return
-    }
-    const ids = selectedOptions.join(',')
-    // TRUYỀN THÊM qty VÀO URL
-    router.push(`/order/checkout?id=${campaign.id}&options=${ids}&qty=${quantity}`)
+  if (selectedOptions.length === 0) {
+    alert("Ninh nhắc khách chọn ít nhất 1 phiên bản nhé!");
+    return;
   }
+  const ids = selectedOptions.join(',');
+  // Chuyển sang checkout mang theo id, options và qty
+  router.push(`/order/checkout?id=${campaign.id}&options=${ids}&qty=${quantity}`);
+}
 
   return (
     <>
