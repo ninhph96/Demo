@@ -54,13 +54,15 @@ function SuccessContent() {
                 {/* HIỂN THỊ FILE BANK.PNG TỪ THƯ MỤC PUBLIC */}
                 <div className="relative mx-auto w-64 h-64 bg-white rounded-3xl p-3 shadow-inner">
                    <img 
+                    // Sửa từ "/bank.png" thành "bank.png" hoặc "./bank.png"
                     src="bank.png" 
                     alt="Mã QR Ngân hàng"
                     className="w-full h-full object-contain rounded-2xl"
                     onError={(e) => {
-                      (e.target as any).src = "https://placehold.co/400x400?text=Thêm+file+bank.png+vào+public"
-                    }}
-                  />
+                        // Dự phòng thêm phương án full đường dẫn nếu vẫn lỗi
+                        (e.target as any).src = "https://ninhph96.github.io/Demo/bank.png"
+                      }}
+                    />
                 </div>
 
                 <div className="space-y-1">
