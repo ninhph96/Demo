@@ -96,7 +96,7 @@ function SuccessContent() {
             {/* Nút hành động */}
             <div className="grid grid-cols-1 gap-3 pt-4">
               <Button className="w-full h-16 rounded-[28px] bg-[#0084FF] hover:bg-[#0073E6] font-black shadow-xl shadow-blue-100 text-white" asChild>
-                <a href="https://m.me/DLThachThao" target="_blank" rel="noopener noreferrer">
+                <a href="https://www.facebook.com/fangirlsdiaryshop" target="_blank" rel="noopener noreferrer">
                   <MessageCircle className="mr-2 h-6 w-6" /> GỬI BILL XÁC NHẬN
                 </a>
               </Button>
