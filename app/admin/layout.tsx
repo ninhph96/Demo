@@ -6,20 +6,18 @@ import { usePathname } from 'next/navigation'
 import { 
   LayoutDashboard, Megaphone, ShoppingCart, 
   Package, Warehouse, Truck, Sparkles, Menu, 
-  LogOut, Settings, Landmark 
+  Settings 
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-import { AdminLogin } from '@/components/admin-login'
 import { supabase } from '@/lib/supabase'
 
-// 1. Cập nhật danh sách Menu (Thêm Ngân hàng & Cấu hình)
 const navItems = [
   { href: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/admin/campaigns', icon: Megaphone, label: 'Chiến dịch' },
   { href: '/admin/orders', icon: ShoppingCart, label: 'Đơn hàng' },
-  { href: '/admin/settings', icon: Settings, label: 'Cấu hình Web' }, // MỤC MỚI
+  { href: '/admin/settings', icon: Settings, label: 'Cấu hình Web' },
   { href: '/admin/group-purchase', icon: Package, label: 'Gom đơn' },
   { href: '/admin/warehouse', icon: Warehouse, label: 'Kho hàng' },
   { href: '/admin/shipments', icon: Truck, label: 'Vận chuyển' }
@@ -27,10 +25,8 @@ const navItems = [
 
 function Sidebar({ className, onItemClick }: { className?: string; onItemClick?: () => void }) {
   const pathname = usePathname()
-  const { logout } = useAuth()
   const [settings, setSettings] = useState<any>(null)
 
-  // Lấy dữ liệu tên web và logo từ Supabase
   useEffect(() => {
     async function fetchSettings() {
       const { data } = await supabase.from('site_settings').select('*').single()
@@ -62,7 +58,6 @@ function Sidebar({ className, onItemClick }: { className?: string; onItemClick?:
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href))
-          
           return (
             <Link
               key={item.href}
@@ -84,30 +79,17 @@ function Sidebar({ className, onItemClick }: { className?: string; onItemClick?:
 
       <div className="p-4 border-t border-gray-100 space-y-2">
         <Link href="/">
-          <Button variant="outline" className="w-full rounded-2xl border-gray-200">
+          <Button variant="outline" className="w-full rounded-2xl border-gray-200 font-bold uppercase text-[10px]">
             Về trang chủ
           </Button>
         </Link>
-        <Button 
-          variant="ghost" 
-          className="w-full rounded-2xl text-red-500 hover:text-red-600 hover:bg-red-50"
-          onClick={logout}
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Đăng xuất
-        </Button>
       </div>
     </div>
   )
 }
 
-function AdminContent({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { isAuthenticated } = useAuth()
-
-  if (!isAuthenticated) {
-    return <AdminLogin />
-  }
 
   return (
     <div className="min-h-screen bg-[#F8F9FD]">
@@ -141,18 +123,10 @@ function AdminContent({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <main className="lg:ml-64 min-h-screen">
-        <Suspense fallback={<div className="p-10 text-center">Đang tải...</div>}>
+        <Suspense fallback={<div className="p-10 text-center font-black uppercase text-gray-300">Đang tải...</div>}>
           {children}
         </Suspense>
       </main>
     </div>
-  )
-}
-
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <AuthProvider>
-      <AdminContent>{children}</AdminContent>
-    </AuthProvider>
   )
 }
